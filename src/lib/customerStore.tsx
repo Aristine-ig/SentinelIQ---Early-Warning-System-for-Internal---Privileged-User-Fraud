@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef } from 'react';
 import { supabase } from './supabase';
 import { generateId, formatCurrency } from './utils';
@@ -238,6 +239,37 @@ function seedNotifications(customerId: string): Omit<DbNotification, 'id'>[] {
   ];
 }
 
+// ─── LocalStorage persistence ───────────────────────────────────────────────
+
+const LS_CUST_AUTH_KEY = 'sentineliq_cust_auth';
+const LS_CUST_KEY = 'sentineliq_cust';
+
+function persistCustomerAuth(auth: CustomerAuth | null, customer: Customer | null) {
+  if (auth && customer) {
+    localStorage.setItem(LS_CUST_AUTH_KEY, JSON.stringify(auth));
+    localStorage.setItem(LS_CUST_KEY, JSON.stringify(customer));
+  } else {
+    localStorage.removeItem(LS_CUST_AUTH_KEY);
+    localStorage.removeItem(LS_CUST_KEY);
+  }
+}
+
+function loadPersistedCustomerAuth(): { auth: CustomerAuth | null; customer: Customer | null } {
+  try {
+    const auth = localStorage.getItem(LS_CUST_AUTH_KEY);
+    const customer = localStorage.getItem(LS_CUST_KEY);
+    if (auth && customer) {
+      return { auth: JSON.parse(auth) as CustomerAuth, customer: JSON.parse(customer) as Customer };
+    }
+  } catch {
+    localStorage.removeItem(LS_CUST_AUTH_KEY);
+    localStorage.removeItem(LS_CUST_KEY);
+  }
+  return { auth: null, customer: null };
+}
+
+const persistedCustomer = loadPersistedCustomerAuth();
+
 // ─── State ────────────────────────────────────────────────────────────────────
 
 interface CustomerState {
@@ -268,7 +300,9 @@ type CustomerAction =
   | { type: 'ADD_NOTIFICATION'; notif: CustomerNotification };
 
 const initialState: CustomerState = {
-  currentAuth: null, currentCustomer: null, transactions: [], beneficiaries: [],
+  currentAuth: persistedCustomer.auth,
+  currentCustomer: persistedCustomer.customer,
+  transactions: [], beneficiaries: [],
   fixedDeposits: [], loans: [], notifications: [], loading: false, dataLoading: false,
 };
 
@@ -276,8 +310,14 @@ function reducer(state: CustomerState, action: CustomerAction): CustomerState {
   switch (action.type) {
     case 'SET_LOADING': return { ...state, loading: action.loading };
     case 'SET_DATA_LOADING': return { ...state, dataLoading: action.loading };
-    case 'LOGIN': return { ...state, currentAuth: action.auth, currentCustomer: action.customer };
-    case 'LOGOUT': return { ...initialState };
+    case 'LOGIN': {
+      persistCustomerAuth(action.auth, action.customer);
+      return { ...state, currentAuth: action.auth, currentCustomer: action.customer };
+    }
+    case 'LOGOUT': {
+      persistCustomerAuth(null, null);
+      return { ...initialState, currentAuth: null, currentCustomer: null };
+    }
     case 'SET_CUSTOMER_DATA':
       return { ...state, transactions: action.transactions, beneficiaries: action.beneficiaries, fixedDeposits: action.fds, loans: action.loans, notifications: action.notifications };
     case 'ADD_TRANSACTION': return { ...state, transactions: [action.tx, ...state.transactions] };
@@ -285,8 +325,11 @@ function reducer(state: CustomerState, action: CustomerAction): CustomerState {
     case 'REMOVE_BENEFICIARY': return { ...state, beneficiaries: state.beneficiaries.filter(b => b.id !== action.id) };
     case 'ADD_FD': return { ...state, fixedDeposits: [...state.fixedDeposits, action.fd] };
     case 'ADD_LOAN': return { ...state, loans: [...state.loans, action.loan] };
-    case 'UPDATE_CUSTOMER':
-      return { ...state, currentCustomer: state.currentCustomer?.id === action.customer.id ? action.customer : state.currentCustomer };
+    case 'UPDATE_CUSTOMER': {
+      const updated = state.currentCustomer?.id === action.customer.id ? action.customer : state.currentCustomer;
+      if (updated && state.currentAuth) persistCustomerAuth(state.currentAuth, updated);
+      return { ...state, currentCustomer: updated };
+    }
     case 'MARK_NOTIFICATION_READ':
       return { ...state, notifications: state.notifications.map(n => n.id === action.id ? { ...n, isRead: true } : n) };
     case 'ADD_NOTIFICATION': return { ...state, notifications: [action.notif, ...state.notifications] };
@@ -317,6 +360,13 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const stateRef = useRef(state);
   stateRef.current = state;
+
+  // ── Rehydrate customer data on mount if persisted session exists ────────────────
+  useEffect(() => {
+    if (persistedCustomer.customer) {
+      loadCustomerData(persistedCustomer.customer.id, false);
+    }
+  }, []); // Removed eslint-disable-next-line since the error is about a missing rule definition.
 
   // ── initiateKYC ─────────────────────────────────────────────────────────
   const initiateKYC = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
@@ -420,7 +470,7 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
       notifications: (notifR.data ?? []).map(mapNotif),
     });
     dispatch({ type: 'SET_DATA_LOADING', loading: false });
-  }, []);
+  }, [dispatch]); // Added dispatch to dependency array.
 
   // ── login ─────────────────────────────────────────────────────────────────
   const login = useCallback(async (email: string, password: string) => {
@@ -461,7 +511,7 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
     const isNew = !custRow.aadhaar || custRow.aadhaar === '';
     await loadCustomerData(customer.id, isNew);
     return { success: true };
-  }, [loadCustomerData]);
+  }, [dispatch, loadCustomerData]); // Added dispatch to dependency array.
 
   // ── signup ────────────────────────────────────────────────────────────────
   const signup = useCallback(async (email: string, password: string, mobile: string, fullName: string) => {
@@ -549,10 +599,10 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
     // New customer — skip dummy data seeding
     await loadCustomerData(customer.id, true);
     return { success: true };
-  }, [loadCustomerData]);
+  }, [dispatch, loadCustomerData]); // Added dispatch to dependency array.
 
   // ── logout ────────────────────────────────────────────────────────────────
-  const logout = useCallback(() => { dispatch({ type: 'LOGOUT' }); }, []);
+  const logout = useCallback(() => { dispatch({ type: 'LOGOUT' }); }, [dispatch]); // Added dispatch to dependency array.
 
   // ── transferFunds ─────────────────────────────────────────────────────────
   const transferFunds = useCallback(async (amount: number, beneficiaryId: string, description: string): Promise<boolean> => {
@@ -590,7 +640,7 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
     await supabase.from('notifications').insert(notif);
     dispatch({ type: 'ADD_NOTIFICATION', notif: mapNotif(notif) });
     return true;
-  }, []);
+  }, [dispatch]); // Added dispatch to dependency array.
 
   // ── addBeneficiary ────────────────────────────────────────────────────────
   const addBeneficiary = useCallback(async (ben: Omit<Beneficiary, 'id' | 'customerId' | 'createdAt'>): Promise<boolean> => {
@@ -606,7 +656,7 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
     if (error) return false;
     dispatch({ type: 'ADD_BENEFICIARY', ben: mapBen(row) });
     return true;
-  }, []);
+  }, [dispatch]); // Added dispatch to dependency array.
 
   // ── removeBeneficiary ─────────────────────────────────────────────────────
   const removeBeneficiary = useCallback(async (id: string): Promise<boolean> => {
@@ -614,7 +664,7 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
     if (error) return false;
     dispatch({ type: 'REMOVE_BENEFICIARY', id });
     return true;
-  }, []);
+  }, [dispatch]); // Added dispatch to dependency array.
 
   // ── openFD ────────────────────────────────────────────────────────────────
   const openFD = useCallback(async (principal: number, tenureMonths: number): Promise<boolean> => {
@@ -652,7 +702,7 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'ADD_TRANSACTION', tx: mapTx(tx) });
     dispatch({ type: 'UPDATE_CUSTOMER', customer: { ...s.currentCustomer, balance: newBalance } });
     return true;
-  }, []);
+  }, [dispatch]); // Added dispatch to dependency array.
 
   // ── applyLoan ─────────────────────────────────────────────────────────────
   const applyLoan = useCallback(async (loanType: string, amount: number, tenure: number, purpose: string): Promise<boolean> => {
@@ -683,13 +733,13 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
     await supabase.from('notifications').insert(notif);
     dispatch({ type: 'ADD_NOTIFICATION', notif: mapNotif(notif) });
     return true;
-  }, []);
+  }, [dispatch]); // Added dispatch to dependency array.
 
   // ── markNotificationRead ──────────────────────────────────────────────────
   const markNotificationRead = useCallback((id: string) => {
     dispatch({ type: 'MARK_NOTIFICATION_READ', id });
     supabase.from('notifications').update({ is_read: true }).eq('id', id);
-  }, []);
+  }, [dispatch]); // Added dispatch to dependency array.
 
   // ── updateProfile ─────────────────────────────────────────────────────────
   const updateProfile = useCallback(async (mobile: string, email: string): Promise<boolean> => {
@@ -699,7 +749,7 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
     await supabase.from('customers').update({ mobile, email }).eq('id', s.currentCustomer.id);
     dispatch({ type: 'UPDATE_CUSTOMER', customer: { ...s.currentCustomer, mobile, email } });
     return true;
-  }, []);
+  }, [dispatch]); // Added dispatch to dependency array.
 
   return (
     <CustomerContext.Provider value={{

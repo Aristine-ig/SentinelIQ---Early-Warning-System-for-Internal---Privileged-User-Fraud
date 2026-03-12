@@ -258,15 +258,45 @@ function createSession(user: AppUser, failedAttempts: number): SessionData {
   };
 }
 
+// ─── LocalStorage persistence helpers ────────────────────────────────────────
+const LS_USER_KEY = 'sentineliq_user';
+const LS_SESSION_KEY = 'sentineliq_session';
+
+function persistAuth(user: AppUser | null, session: SessionData | null) {
+  if (user && session) {
+    localStorage.setItem(LS_USER_KEY, JSON.stringify(user));
+    localStorage.setItem(LS_SESSION_KEY, JSON.stringify(session));
+  } else {
+    localStorage.removeItem(LS_USER_KEY);
+    localStorage.removeItem(LS_SESSION_KEY);
+  }
+}
+
+function loadPersistedAuth(): { user: AppUser | null; session: SessionData | null } {
+  try {
+    const user = localStorage.getItem(LS_USER_KEY);
+    const session = localStorage.getItem(LS_SESSION_KEY);
+    if (user && session) {
+      return { user: JSON.parse(user) as AppUser, session: JSON.parse(session) as SessionData };
+    }
+  } catch {
+    localStorage.removeItem(LS_USER_KEY);
+    localStorage.removeItem(LS_SESSION_KEY);
+  }
+  return { user: null, session: null };
+}
+
+const persisted = loadPersistedAuth();
+
 const initialState: AppState = {
-  currentUser: null,
-  currentSession: null,
+  currentUser: persisted.user,
+  currentSession: persisted.session,
   users: [],
   customers: [],
   activityLogs: [],
   alerts: [],
   riskHistory: [],
-  sessions: {},
+  sessions: persisted.session ? { [persisted.session.userId]: persisted.session } : {},
   failedAttempts: {},
   loading: true,
 };
@@ -285,7 +315,8 @@ function appReducer(state: AppState, action: AppAction): AppState {
       };
     case 'SET_LOADING':
       return { ...state, loading: action.loading };
-    case 'LOGIN':
+    case 'LOGIN': {
+      persistAuth(action.user, action.session);
       return {
         ...state,
         currentUser: action.user,
@@ -293,7 +324,9 @@ function appReducer(state: AppState, action: AppAction): AppState {
         sessions: { ...state.sessions, [action.user.id]: action.session },
         failedAttempts: { ...state.failedAttempts, [action.user.loginId]: 0 },
       };
+    }
     case 'LOGOUT':
+      persistAuth(null, null);
       return { ...state, currentUser: null, currentSession: null };
     case 'ADD_LOG':
       return { ...state, activityLogs: [action.log, ...state.activityLogs] };
@@ -305,6 +338,10 @@ function appReducer(state: AppState, action: AppAction): AppState {
     }
     case 'UPDATE_SESSION':
     case 'REALTIME_SESSION': {
+      // Keep localStorage in sync with latest session
+      if (state.currentUser && action.session.userId === state.currentUser.id) {
+        persistAuth(state.currentUser, action.session);
+      }
       const s = action.session;
       return {
         ...state,
@@ -424,6 +461,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const sessions: Record<string, SessionData> = {};
       for (const s of (dbSessions ?? [])) {
         sessions[s.user_id] = mapSession(s as DbSession);
+      }
+
+      // If we have a persisted user, refresh their session from DB
+      const { user: persistedUser } = loadPersistedAuth();
+      if (persistedUser && sessions[persistedUser.id]) {
+        const freshSession = sessions[persistedUser.id];
+        persistAuth(persistedUser, freshSession);
       }
 
       dispatch({ type: 'SET_INITIAL_DATA', users, customers, logs, alerts, sessions });
