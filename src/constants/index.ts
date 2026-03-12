@@ -1,0 +1,97 @@
+import type { Role, SystemAccess } from '@/types';
+
+export const ROLES: Role[] = [
+  'Teller',
+  'Loan Officer',
+  'Treasury Analyst',
+  'DB Administrator',
+  'Branch Manager',
+  'IT Admin',
+  'Compliance Officer',
+  'Trade Finance Analyst',
+];
+
+export const SYSTEMS: SystemAccess[] = [
+  'Core Banking',
+  'Treasury',
+  'Loan Origination',
+  'Customer Database',
+  'All Systems',
+];
+
+export const BRANCHES = [
+  'Mumbai Main Branch',
+  'Delhi Connaught Place',
+  'Bangalore MG Road',
+  'Chennai Anna Nagar',
+  'Hyderabad Banjara Hills',
+  'Kolkata Park Street',
+  'Pune FC Road',
+  'Ahmedabad CG Road',
+];
+
+export const RULE_DEFINITIONS: Record<string, { description: string; score: number; category: string }> = {
+  R001: { description: 'Login between 10PM–6AM (off-hours)', score: 25, category: 'Off-Hours & Access' },
+  R002: { description: 'Login on Saturday or Sunday', score: 15, category: 'Off-Hours & Access' },
+  R003: { description: 'Login from unrecognised IP address', score: 20, category: 'Off-Hours & Access' },
+  R004: { description: '3 or more failed login attempts before success', score: 30, category: 'Off-Hours & Access' },
+  R005: { description: 'Same account active from two different IPs within 30 minutes', score: 50, category: 'Off-Hours & Access' },
+  R010: { description: 'Accessed a Dormant account', score: 35, category: 'Dormant Account Fraud' },
+  R011: { description: 'Accessed Dormant account with no linked service request', score: 40, category: 'Dormant Account Fraud' },
+  R012: { description: 'Modified mobile number on a Dormant account', score: 60, category: 'Dormant Account Fraud' },
+  R013: { description: 'Modified email on a Dormant account', score: 55, category: 'Dormant Account Fraud' },
+  R014: { description: 'Modified both mobile and email on a Dormant account in same session', score: 80, category: 'Dormant Account Fraud' },
+  R015: { description: 'Accessed 3 or more Dormant accounts in one session', score: 65, category: 'Dormant Account Fraud' },
+  R016: { description: 'Accessed 5 or more Dormant accounts in one session', score: 85, category: 'Dormant Account Fraud' },
+  R017: { description: 'OTP triggered within 10 minutes of contact modification on Dormant account', score: 90, category: 'Dormant Account Fraud' },
+  R018: { description: 'Transaction initiated on Dormant account within 30 minutes of contact update', score: 95, category: 'Dormant Account Fraud' },
+  R019: { description: 'Complete drain chain — R010 + R014 + R017 + R018 all triggered', score: 100, category: 'Dormant Account Fraud' },
+  R020: { description: 'Exported report with more than 100 records', score: 30, category: 'Data Exfiltration' },
+  R021: { description: 'Exported report with more than 500 records', score: 55, category: 'Data Exfiltration' },
+  R022: { description: 'Exported report with more than 1000 records', score: 75, category: 'Data Exfiltration' },
+  R023: { description: 'Export included PAN or Aadhaar fields', score: 25, category: 'Data Exfiltration' },
+  R024: { description: 'Export included PAN + Aadhaar + Account Number together', score: 50, category: 'Data Exfiltration' },
+  R025: { description: 'User ran 3 or more reports in one session', score: 45, category: 'Data Exfiltration' },
+  R026: { description: 'Export performed during off-hours', score: 30, category: 'Data Exfiltration' },
+  R027: { description: 'Email field set to external domain after export', score: 70, category: 'Data Exfiltration' },
+  R030: { description: 'More than 10 transactions in one session', score: 30, category: 'Unusual Transactions' },
+  R031: { description: 'More than 20 transactions in one session', score: 55, category: 'Unusual Transactions' },
+  R032: { description: 'Transaction above ₹10,00,000 without dual authorisation', score: 50, category: 'Unusual Transactions' },
+  R033: { description: 'Transaction above ₹50,00,000', score: 80, category: 'Unusual Transactions' },
+  R034: { description: 'Beneficiary account created less than 48 hours ago', score: 45, category: 'Unusual Transactions' },
+  R035: { description: 'Multiple transactions to the same new beneficiary', score: 40, category: 'Unusual Transactions' },
+  R036: { description: 'Transaction reversal by the same user who created it', score: 50, category: 'Unusual Transactions' },
+  R037: { description: 'More than 50 micro-transactions under ₹10 in one session', score: 85, category: 'Unusual Transactions' },
+  R040: { description: 'User accessed a system outside their assigned scope', score: 45, category: 'Privilege Abuse' },
+  R041: { description: 'User attempted an admin action without admin role', score: 60, category: 'Privilege Abuse' },
+  R043: { description: 'Audit log deletion attempted', score: 95, category: 'Privilege Abuse' },
+  R045: { description: 'More than 20 customer accounts accessed in under 5 minutes', score: 55, category: 'Privilege Abuse' },
+  R050: { description: 'Loan originated and approved by the same officer', score: 70, category: 'Loan Fraud' },
+  R051: { description: 'Loan approved with incomplete KYC checklist', score: 60, category: 'Loan Fraud' },
+  R052: { description: 'Loan above ₹5,00,000 with no income verification', score: 65, category: 'Loan Fraud' },
+  R054: { description: 'Borrower account created less than 7 days ago', score: 55, category: 'Loan Fraud' },
+  R055: { description: 'Loan Officer forwarded 3 or more loans in one session', score: 40, category: 'Loan Fraud' },
+  R056: { description: 'Loan Officer forwarded a loan with unverified KYC', score: 65, category: 'Loan Fraud' },
+  R057: { description: 'Branch Manager approved 3 or more loans in one session', score: 45, category: 'Loan Fraud' },
+  R058: { description: 'Branch Manager approved high-value loan (>₹10L) within 10 minutes of forwarding', score: 55, category: 'Loan Fraud' },
+  R059: { description: 'Loan forwarded where amount exceeds applicant salary eligibility (>60× salary)', score: 50, category: 'Loan Fraud' },
+  R060: { description: 'Same pair of users in maker-checker more than 10 times this week', score: 35, category: 'Collusion' },
+  R062: { description: 'Large transaction approved within 60 seconds of initiation', score: 45, category: 'Collusion' },
+  R063: { description: 'Approver and initiator share the same IP address', score: 75, category: 'Collusion' },
+};
+
+export const SEVERITY_COLORS: Record<string, string> = {
+  Low: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30',
+  Medium: 'text-amber-400 bg-amber-400/10 border-amber-400/30',
+  High: 'text-orange-400 bg-orange-400/10 border-orange-400/30',
+  Critical: 'text-red-400 bg-red-400/10 border-red-400/30',
+  Severe: 'text-rose-300 bg-rose-500/20 border-rose-400/50',
+};
+
+export const SEVERITY_BAR_COLORS: Record<string, string> = {
+  Low: '#10b981',
+  Medium: '#f59e0b',
+  High: '#f97316',
+  Critical: '#ef4444',
+  Severe: '#fb7185',
+};

@@ -1,122 +1,152 @@
-export type RiskLevel = 'critical' | 'high' | 'medium' | 'low';
-export type AlertStatus = 'open' | 'investigating' | 'resolved' | 'false_positive';
-export type CaseStatus = 'open' | 'in_progress' | 'escalated' | 'closed';
-export type UserRole = 'admin' | 'trader' | 'loan_officer' | 'teller' | 'it_staff' | 'auditor' | 'manager';
-export type SystemType = 'core_banking' | 'treasury' | 'loan_origination' | 'customer_db' | 'active_directory' | 'swift';
-export type AnomalyType =
-  | 'off_hours_access'
-  | 'bulk_data_download'
-  | 'privilege_escalation'
-  | 'unusual_transaction'
-  | 'multiple_failed_auth'
-  | 'unauthorized_modification'
-  | 'geo_anomaly'
-  | 'data_exfiltration'
-  | 'dormant_account_access'
-  | 'velocity_breach';
+export type Role =
+  | 'Teller'
+  | 'Loan Officer'
+  | 'Treasury Analyst'
+  | 'DB Administrator'
+  | 'Branch Manager'
+  | 'IT Admin'
+  | 'Compliance Officer'
+  | 'Trade Finance Analyst';
 
-export interface User {
+export type SystemAccess =
+  | 'Core Banking'
+  | 'Treasury'
+  | 'Loan Origination'
+  | 'Customer Database'
+  | 'All Systems';
+
+export type UserStatus = 'active' | 'suspended' | 'deactivated';
+
+export interface AppUser {
   id: string;
-  name: string;
-  email: string;
-  role: UserRole;
+  loginId: string;
+  password: string;
+  fullName: string;
+  role: Role;
   department: string;
-  riskScore: number;
-  riskLevel: RiskLevel;
-  lastActivity: string;
-  baselineEstablished: boolean;
-  alertCount: number;
-  openCases: number;
-  joinDate: string;
-  avatar: string;
-  privilegeLevel: number;
-  systems: SystemType[];
+  systemAccess: SystemAccess;
+  isAdmin: boolean;
+  status: UserStatus;
+  createdAt: string;
 }
+
+export type AccountType = 'Savings' | 'Current' | 'Fixed Deposit';
+export type AccountStatus = 'Active' | 'Inactive' | 'Dormant';
+export type KYCStatus = 'Verified' | 'Pending' | 'Expired';
+
+export interface Customer {
+  id: string;
+  fullName: string;
+  aadhaar: string;
+  pan: string;
+  accountNumber: string;
+  accountType: AccountType;
+  balance: number;
+  accountStatus: AccountStatus;
+  lastTransactionDate: string;
+  dateOpened: string;
+  mobile: string;
+  email: string;
+  branch: string;
+  kycStatus: KYCStatus;
+  bankName: string;
+  ifscCode: string;
+}
+
+export type ActionType =
+  | 'LOGIN'
+  | 'LOGIN_FAILED'
+  | 'LOGOUT'
+  | 'VIEW_ACCOUNT'
+  | 'MODIFY_CONTACT'
+  | 'INITIATE_TRANSACTION'
+  | 'RUN_REPORT'
+  | 'TRIGGER_OTP'
+  | 'APPROVE_LOAN'
+  | 'CREATE_USER'
+  | 'EDIT_USER'
+  | 'DEACTIVATE_USER'
+  | 'PROMOTE_USER'
+  | 'VIEW_AUDIT_LOG'
+  | 'DELETE_AUDIT_LOG_ATTEMPT';
+
+export interface ActivityLog {
+  id: string;
+  userId: string;
+  userName: string;
+  actionType: ActionType;
+  system: string;
+  customerId?: string;
+  customerName?: string;
+  timestamp: string;
+  ip: string;
+  metadata: Record<string, unknown>;
+}
+
+export type Severity = 'Low' | 'Medium' | 'High' | 'Critical' | 'Severe';
+
+export interface TriggeredRule {
+  ruleId: string;
+  description: string;
+  score: number;
+}
+
+export type ScamType =
+  | 'Dormant Account Draining'
+  | 'Full Drain Sequence'
+  | 'Data Exfiltration for Sale'
+  | 'Salami Slicing'
+  | 'Loan Fraud'
+  | 'Collusion Fraud'
+  | 'Privilege Escalation'
+  | 'After-Hours Exfiltration'
+  | 'General Suspicious Activity';
+
+export type ConfidenceLevel = 'LOW' | 'MEDIUM' | 'HIGH';
+
+export type AlertStatus = 'open' | 'escalated' | 'closed' | 'false_positive';
 
 export interface Alert {
   id: string;
   userId: string;
   userName: string;
-  userRole: UserRole;
+  role: string;
   department: string;
-  riskScore: number;
-  riskLevel: RiskLevel;
-  anomalyType: AnomalyType;
-  title: string;
-  description: string;
-  aiExplanation: string;
-  system: SystemType;
+  system: string;
+  triggeredRules: TriggeredRule[];
+  totalScore: number;
+  severity: Severity;
+  scamType: ScamType;
+  confidence: ConfidenceLevel;
+  explanation: string;
+  recommendedAction: string;
   timestamp: string;
   status: AlertStatus;
-  ipAddress: string;
-  location: string;
-  affectedRecords?: number;
-  transactionAmount?: number;
-  assignedTo?: string;
-  tags: string[];
 }
 
-export interface ActivityEvent {
-  id: string;
+export interface SessionData {
   userId: string;
-  userName: string;
-  userRole: UserRole;
-  action: string;
-  system: SystemType;
+  ip: string;
+  loginTime: string;
+  riskScore: number;
+  triggeredRuleIds: string[];
+  dormantAccountsAccessed: string[];
+  transactionCount: number;
+  reportCount: number;
+  accessedCustomers: string[];
+  contactModifications: { customerId: string; timestamp: string; fields: string[] }[];
+  otpTriggers: { customerId: string; timestamp: string }[];
+  transactions: { customerId: string; amount: number; timestamp: string; beneficiary: string }[];
+  isOffHours: boolean;
+  isWeekend: boolean;
+  failedLoginAttempts: number;
+  loanForwardCount: number;
+  loanApprovalCount: number;
+  loanActions: Array<{ type: string; loanId: string; amount: number; kycStatus?: string; salary?: number; timestamp: string }>;
+}
+
+export interface RiskHistory {
+  userId: string;
   timestamp: string;
-  ipAddress: string;
-  location: string;
-  riskScore: number;
-  anomalyFlag: boolean;
-  anomalyType?: AnomalyType;
-  details: string;
-}
-
-export interface BehaviorDataPoint {
-  hour: number;
-  baseline: number;
-  actual: number;
-  anomaly: boolean;
-}
-
-export interface RiskTrendPoint {
-  date: string;
   score: number;
-  alerts: number;
-}
-
-export interface SystemStats {
-  system: SystemType;
-  label: string;
-  alertCount: number;
-  riskScore: number;
-  monitoredUsers: number;
-}
-
-export interface DashboardMetrics {
-  totalAlerts: number;
-  criticalAlerts: number;
-  openCases: number;
-  monitoredUsers: number;
-  avgRiskScore: number;
-  alertsToday: number;
-  resolvedToday: number;
-  falsePositiveRate: number;
-}
-
-export interface Case {
-  id: string;
-  alertIds: string[];
-  userId: string;
-  userName: string;
-  title: string;
-  description: string;
-  status: CaseStatus;
-  priority: RiskLevel;
-  assignedTo: string;
-  createdAt: string;
-  updatedAt: string;
-  notes: string[];
-  estimatedLoss?: number;
-  confirmed: boolean;
 }
