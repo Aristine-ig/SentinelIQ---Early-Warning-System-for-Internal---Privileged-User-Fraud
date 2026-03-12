@@ -37,7 +37,7 @@ interface LoanRequest {
 type FilterStatus = 'all' | 'pending' | 'under_review' | 'pending_approval' | 'approved' | 'rejected';
 
 export default function LoanRequestsPanel() {
-  const { state } = useApp();
+  const { state, logAction } = useApp();
   const [loans, setLoans] = useState<LoanRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterStatus>('all');

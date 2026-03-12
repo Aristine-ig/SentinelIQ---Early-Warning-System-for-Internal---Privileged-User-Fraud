@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useCustomer } from '@/lib/customerStore';
 import { formatCurrency, formatDate, formatDateShort, maskAadhaar, maskPAN, cn } from '@/lib/utils';
@@ -44,8 +45,7 @@ export default function AccountOverview({ onNavigate }: Props) {
   };
 
   return (
-    <div className="p-4 lg:p-6 space-y-6 max-w-5xl mx-auto">
-
+    <div className="space-y-6"> {/* Added a root div element to wrap multiple JSX elements */}
       {/* KYC Alert Banner for new/pending customers */}
       {currentCustomer.kycStatus !== 'Verified' && (
         <div className={cn(
@@ -74,9 +74,13 @@ export default function AccountOverview({ onNavigate }: Props) {
             disabled={kycLoading}
             className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black font-semibold text-xs rounded-lg transition-all flex-shrink-0 disabled:opacity-60 disabled:cursor-not-allowed">
             {kycLoading ? (
-              <><Clock className="w-3.5 h-3.5 animate-spin" /> Submitting...</>
+              <>
+                <Clock className="w-3.5 h-3.5 animate-spin" /> Submitting...
+              </>
             ) : (
-              <><Shield className="w-3.5 h-3.5" /> Initiate KYC</>
+              <>
+                <Shield className="w-3.5 h-3.5" /> Initiate KYC
+              </>
             )}
           </button>
         </div>

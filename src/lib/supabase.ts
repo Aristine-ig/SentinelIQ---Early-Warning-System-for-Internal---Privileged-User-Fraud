@@ -98,3 +98,17 @@ export interface DbRiskHistory {
   timestamp: string;
   score: number;
 }
+
+export interface DbContactChangeRequest {
+  id: string;
+  customer_id: string;
+  requested_mobile: string | null;
+  requested_email: string | null;
+  reason: string | null;
+  status: string;
+  requested_at: string;
+  reviewed_by: string | null;
+  reviewed_by_name: string | null;
+  reviewed_at: string | null;
+  rejection_reason: string | null;
+}

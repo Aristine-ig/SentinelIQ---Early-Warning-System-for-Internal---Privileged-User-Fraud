@@ -78,6 +78,10 @@ export const RULE_DEFINITIONS: Record<string, { description: string; score: numb
   R060: { description: 'Same pair of users in maker-checker more than 10 times this week', score: 35, category: 'Collusion' },
   R062: { description: 'Large transaction approved within 60 seconds of initiation', score: 45, category: 'Collusion' },
   R063: { description: 'Approver and initiator share the same IP address', score: 75, category: 'Collusion' },
+  R070: { description: 'Contact details modified without a verified customer change request', score: 70, category: 'Unauthorized Modification' },
+  R071: { description: 'Mobile number changed without an approved request on a Dormant account', score: 90, category: 'Unauthorized Modification' },
+  R072: { description: 'Email changed without an approved request on a Dormant account', score: 85, category: 'Unauthorized Modification' },
+  R073: { description: 'Both mobile and email changed without any approved request', score: 95, category: 'Unauthorized Modification' },
 };
 
 export const SEVERITY_COLORS: Record<string, string> = {

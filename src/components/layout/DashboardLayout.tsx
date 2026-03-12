@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Shield, LayoutDashboard, Bell, Users, Activity, FileText,
   LogOut, ChevronLeft, ChevronRight, User, AlertTriangle,
-  Menu, X, FileCheck, CreditCard,
+  Menu, X, FileCheck, CreditCard, Phone,
 } from 'lucide-react';
 import { useApp } from '@/lib/store';
 import { cn, getSeverity } from '@/lib/utils';
@@ -24,6 +24,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'activitylog', label: 'Activity Log', icon: FileText, adminOnly: true },
   { id: 'kyc', label: 'KYC Requests', icon: FileCheck, adminOnly: true },
   { id: 'loanreqs', label: 'Loan Requests', icon: CreditCard, adminOnly: true, roles: ['Loan Officer', 'Branch Manager'] },
+  { id: 'changereqs', label: 'Change Requests', icon: Phone, adminOnly: true, roles: ['Teller'] },
   { id: 'customers', label: 'Customer Portal', icon: User, adminOnly: false },
 ];
 

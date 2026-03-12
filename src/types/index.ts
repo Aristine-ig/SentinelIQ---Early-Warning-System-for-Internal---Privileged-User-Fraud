@@ -68,7 +68,9 @@ export type ActionType =
   | 'DEACTIVATE_USER'
   | 'PROMOTE_USER'
   | 'VIEW_AUDIT_LOG'
-  | 'DELETE_AUDIT_LOG_ATTEMPT';
+  | 'DELETE_AUDIT_LOG_ATTEMPT'
+  | 'APPLY_CONTACT_CHANGE'
+  | 'REJECT_CONTACT_CHANGE';
 
 export interface ActivityLog {
   id: string;
@@ -100,6 +102,7 @@ export type ScamType =
   | 'Collusion Fraud'
   | 'Privilege Escalation'
   | 'After-Hours Exfiltration'
+  | 'Unauthorized Contact Modification'
   | 'General Suspicious Activity';
 
 export type ConfidenceLevel = 'LOW' | 'MEDIUM' | 'HIGH';

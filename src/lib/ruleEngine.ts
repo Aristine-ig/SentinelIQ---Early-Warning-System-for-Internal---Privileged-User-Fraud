@@ -105,6 +105,10 @@ export function evaluateRules(session: SessionData, customers: Customer[]): {
     else if (tx.amount > 1000000) addRule('R032');
   }
 
+  // Category 6 — Unauthorized Modification
+  // These are injected directly via extraRules from logAction
+  // (R070, R071, R072, R073) — no additional session checks needed here
+
   // Calculate base score from triggered rules
   const allTriggeredIds = [
     ...session.triggeredRuleIds,
@@ -203,6 +207,10 @@ export function predictScamType(allRuleIds: string[]): { scamType: ScamType; con
       rules: [['R041'], ['R040']],
     },
     {
+      type: 'Unauthorized Contact Modification',
+      rules: [['R070'], ['R071', 'R072'], ['R073']],
+    },
+    {
       type: 'After-Hours Exfiltration',
       rules: [['R001'], ['R020', 'R021'], ['R026']],
     },
@@ -272,6 +280,11 @@ export function generateExplanation(
   if (has('R057')) parts.push(`approved ${session.loanApprovalCount} loan applications in one session (bulk approval)`);
   if (has('R058')) parts.push('approved a high-value loan (>₹10L) within 10 minutes of it being forwarded');
   if (has('R059')) parts.push('forwarded a loan application where the amount exceeds the applicant\'s salary eligibility (salary × 60)');
+
+  if (has('R070')) parts.push('modified customer contact details without a verified customer change request');
+  if (has('R071')) parts.push('changed mobile number on a Dormant account without any approved customer request');
+  if (has('R072')) parts.push('changed email on a Dormant account without any approved customer request');
+  if (has('R073')) parts.push('changed both mobile and email without any approved customer request on file');
 
   if (parts.length === 0) parts.push('performed multiple suspicious actions triggering risk rules');
 

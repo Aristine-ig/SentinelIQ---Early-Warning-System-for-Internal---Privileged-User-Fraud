@@ -15,11 +15,13 @@ const UserManagementPanel = lazy(() => import('@/components/admin/UserManagement
 const ActivityLogPanel   = lazy(() => import('@/components/admin/ActivityLogPanel'));
 const KycRequestsPanel   = lazy(() => import('@/components/admin/KycRequestsPanel'));
 const LoanRequestsPanel  = lazy(() => import('@/components/admin/LoanRequestsPanel'));
+const ChangeRequestsPanel = lazy(() => import('@/components/admin/ChangeRequestsPanel'));
 
-const ADMIN_PANELS = ['overview', 'alerts', 'behaviour', 'usermgmt', 'activitylog', 'customers', 'kyc', 'loanreqs'];
+const ADMIN_PANELS = ['overview', 'alerts', 'behaviour', 'usermgmt', 'activitylog', 'customers', 'kyc', 'loanreqs', 'changereqs'];
 const ROLE_PANELS: Record<string, string[]> = {
   'Loan Officer':   ['customers', 'loanreqs'],
   'Branch Manager': ['customers', 'loanreqs'],
+  'Teller':         ['customers', 'changereqs'],
 };
 
 function AdminPanelLoader() {
@@ -79,6 +81,7 @@ export default function Dashboard() {
       case 'activitylog': return isAdmin ? <ActivityLogPanel /> : null;
       case 'kyc':         return isAdmin ? <KycRequestsPanel /> : null;
       case 'loanreqs':    return (isAdmin || userRole === 'Loan Officer' || userRole === 'Branch Manager') ? <LoanRequestsPanel /> : null;
+      case 'changereqs':   return (isAdmin || userRole === 'Teller') ? <ChangeRequestsPanel /> : null;
       case 'customers':   return <CustomerTable onSelectCustomer={handleSelectCustomer} />;
       default:            return isAdmin ? <OverviewPanel /> : <CustomerTable onSelectCustomer={handleSelectCustomer} />;
     }
