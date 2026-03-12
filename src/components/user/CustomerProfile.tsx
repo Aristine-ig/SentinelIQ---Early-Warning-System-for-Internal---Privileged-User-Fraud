@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { X, Eye, Phone, Mail, DollarSign, FileText, Zap, CreditCard, AlertTriangle, ShieldAlert } from 'lucide-react';
 import { useApp } from '@/lib/store';
-import { cn, maskAadhaar, maskPAN, formatCurrency, formatDateShort, formatDate } from '@/lib/utils';
+import { cn, maskAadhaar, maskPAN, formatCurrency, formatDateShort, formatDate, generateId } from '@/lib/utils';
 import type { Customer } from '@/types';
+import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 
 interface Props {
@@ -70,6 +71,24 @@ export default function CustomerProfile({ customer, onClose }: Props) {
     );
 
     updateCustomer({ ...customer, mobile: newMobile, email: newEmail });
+
+    // Notify the affected customer so they see it in their notification panel
+    const changedParts: string[] = [];
+    if (fields.includes('mobile')) changedParts.push(`mobile number changed to ${newMobile}`);
+    if (fields.includes('email')) changedParts.push(`email address changed to ${newEmail}`);
+    const now = new Date().toISOString();
+    supabase.from('notifications').insert({
+      id: generateId('NT'),
+      customer_id: customer.id,
+      title: '⚠️ Contact Details Changed Without Your Request',
+      message: `Your account contact details were modified by bank staff without any verified request from you: ${changedParts.join(', ')}. If you did NOT authorise this change, please contact your branch immediately or call our fraud helpline.`,
+      type: 'alert',
+      is_read: false,
+      created_at: now,
+    }).then(({ error }) => {
+      if (error) console.error('Notification insert error:', error);
+    });
+
     toast.warning('Contact details forcefully updated — FRAUD RULES TRIGGERED (R070+)', { duration: 5000 });
     setActionModal('none');
   };
