@@ -517,6 +517,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     user: AppUser,
     extraRules: string[] = []
   ) => {
+    // Build TriggeredRule objects for the extra rules BEFORE adding to triggeredRuleIds
+    // so evaluateRules doesn't skip them (it skips ids already in triggeredRuleIds)
+    const extraTriggeredRules: import('@/types').TriggeredRule[] = extraRules
+      .filter(id => RULE_DEFINITIONS[id] && !session.triggeredRuleIds.includes(id))
+      .map(id => ({ ruleId: id, description: RULE_DEFINITIONS[id].description, score: RULE_DEFINITIONS[id].score }));
+
     const newSession = { ...session };
     for (const ruleId of extraRules) {
       if (!newSession.triggeredRuleIds.includes(ruleId) && RULE_DEFINITIONS[ruleId]) {
@@ -524,14 +530,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    const { triggeredRules, totalScore } = evaluateRules(newSession, customers);
+    const { triggeredRules: sessionTriggeredRules, totalScore: sessionScore } = evaluateRules(newSession, customers);
+
+    // Merge extra rules with session-evaluated rules (deduplicate)
+    const allNewRuleIds = new Set([...sessionTriggeredRules.map(r => r.ruleId), ...extraTriggeredRules.map(r => r.ruleId)]);
+    const mergedTriggeredRules = [
+      ...sessionTriggeredRules,
+      ...extraTriggeredRules.filter(r => !sessionTriggeredRules.some(s => s.ruleId === r.ruleId)),
+    ];
+
+    // Recalculate total score including extra rule scores
+    const extraScore = extraTriggeredRules.reduce((sum, r) => sum + r.score, 0);
+    const totalScore = Math.min(100, sessionScore + extraScore);
+    void allNewRuleIds; // used via mergedTriggeredRules
 
     const updatedSession: SessionData = {
       ...newSession,
       riskScore: totalScore,
       triggeredRuleIds: [
         ...newSession.triggeredRuleIds,
-        ...triggeredRules.map(r => r.ruleId).filter(id => !newSession.triggeredRuleIds.includes(id)),
+        ...sessionTriggeredRules.map(r => r.ruleId).filter(id => !newSession.triggeredRuleIds.includes(id)),
       ],
     };
 
@@ -551,9 +569,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       .insert({ user_id: user.id, score: totalScore })
       .then(({ error }) => { if (error) console.error('Risk history insert error:', error); });
 
-    // Generate alert if score >= 30
-    if (totalScore >= 30 && triggeredRules.length > 0) {
-      const alert = buildAlert(user, updatedSession, triggeredRules, totalScore, customers);
+    // Generate alert if score >= 30 and there are newly triggered rules
+    if (totalScore >= 30 && mergedTriggeredRules.length > 0) {
+      const alert = buildAlert(user, updatedSession, mergedTriggeredRules, totalScore, customers);
       dispatch({ type: 'ADD_ALERT', alert });
       supabase
         .from('alerts')

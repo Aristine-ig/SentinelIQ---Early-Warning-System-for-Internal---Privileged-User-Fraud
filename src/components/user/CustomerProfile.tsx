@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Eye, Phone, Mail, DollarSign, FileText, Zap, CreditCard, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { X, Eye, Phone, Mail, DollarSign, FileText, Zap, CreditCard, AlertTriangle, Pencil } from 'lucide-react';
 import { useApp } from '@/lib/store';
 import { cn, maskAadhaar, maskPAN, formatCurrency, formatDateShort, formatDate, generateId } from '@/lib/utils';
 import type { Customer } from '@/types';
@@ -89,7 +89,7 @@ export default function CustomerProfile({ customer, onClose }: Props) {
       if (error) console.error('Notification insert error:', error);
     });
 
-    toast.warning('Contact details forcefully updated — FRAUD RULES TRIGGERED (R070+)', { duration: 5000 });
+    toast.success('Contact details updated successfully.');
     setActionModal('none');
   };
 
@@ -220,12 +220,9 @@ export default function CustomerProfile({ customer, onClose }: Props) {
             </button>
             <button
               onClick={() => setActionModal('modify_contact')}
-              className={cn(
-                'flex items-center gap-2 px-4 py-3 border rounded-xl text-sm font-medium transition-all',
-                'bg-red-500/10 hover:bg-red-500/20 border-red-500/30 text-red-300'
-              )}
+              className="flex items-center gap-2 px-4 py-3 bg-sky-600/10 hover:bg-sky-600/20 border border-sky-500/30 text-sky-300 rounded-xl text-sm font-medium transition-all"
             >
-              <ShieldAlert className="w-4 h-4" /> Force Modify Contact ⚠️
+              <Pencil className="w-4 h-4" /> Modify Contact
             </button>
             <button
               onClick={() => setActionModal('transaction')}
@@ -269,11 +266,7 @@ export default function CustomerProfile({ customer, onClose }: Props) {
 
               {actionModal === 'modify_contact' && (
                 <form onSubmit={handleModifyContact}>
-                  <h3 className="text-base font-bold text-white mb-2">Force Modify Contact Details</h3>
-                  <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-4">
-                    <p className="text-xs text-red-300 font-semibold flex items-center gap-1.5"><ShieldAlert className="w-3.5 h-3.5" /> WARNING — No customer request on file</p>
-                    <p className="text-xs text-red-300/70 mt-1">Modifying contact without a verified customer request will automatically trigger fraud rules R070–R073 and add risk to your session score.</p>
-                  </div>
+                  <h3 className="text-base font-bold text-white mb-2">Modify Contact Details</h3>
                   <div className="space-y-4">
                     <div>
                       <label className="block text-xs font-semibold text-slate-300 mb-1.5">Mobile Number</label>
