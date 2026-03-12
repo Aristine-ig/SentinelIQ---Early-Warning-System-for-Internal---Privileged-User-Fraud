@@ -211,6 +211,10 @@ export function predictScamType(allRuleIds: string[]): { scamType: ScamType; con
       rules: [['R070'], ['R071', 'R072'], ['R073']],
     },
     {
+      type: 'Maker-Checker Bypass',
+      rules: [['R080'], ['R081'], ['R082'], ['R083']],
+    },
+    {
       type: 'After-Hours Exfiltration',
       rules: [['R001'], ['R020', 'R021'], ['R026']],
     },
@@ -285,6 +289,11 @@ export function generateExplanation(
   if (has('R071')) parts.push('changed mobile number on a Dormant account without any approved customer request');
   if (has('R072')) parts.push('changed email on a Dormant account without any approved customer request');
   if (has('R073')) parts.push('changed both mobile and email without any approved customer request on file');
+
+  if (has('R080')) parts.push('approved a loan they personally forwarded — bypassing the maker-checker control (R080: Maker = Checker)');
+  if (has('R081')) parts.push('is part of a confirmed collusion ring — the same Loan Officer → Branch Manager pair has approved 3 or more loans together (R081)');
+  if (has('R082')) parts.push('approved 3 or more loans this session without any review remarks — pattern consistent with rubber-stamp fraud (R082)');
+  if (has('R083')) parts.push('attempted to self-approve a loan they originated as Loan Officer, violating cross-role separation of duties (R083)');
 
   if (parts.length === 0) parts.push('performed multiple suspicious actions triggering risk rules');
 

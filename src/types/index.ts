@@ -103,6 +103,7 @@ export type ScamType =
   | 'Privilege Escalation'
   | 'After-Hours Exfiltration'
   | 'Unauthorized Contact Modification'
+  | 'Maker-Checker Bypass'
   | 'General Suspicious Activity';
 
 export type ConfidenceLevel = 'LOW' | 'MEDIUM' | 'HIGH';

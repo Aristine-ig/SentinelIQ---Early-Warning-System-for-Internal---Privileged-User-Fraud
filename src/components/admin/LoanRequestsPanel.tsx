@@ -4,7 +4,7 @@ import { useApp } from '@/lib/store';
 import { formatCurrency, formatDateShort, cn } from '@/lib/utils';
 import {
   CreditCard, Clock, CheckCircle, XCircle, ChevronRight,
-  RefreshCw, User, Send, AlertTriangle, Briefcase, Info,
+  RefreshCw, User, Send, AlertTriangle, ShieldAlert,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -102,11 +102,8 @@ export default function LoanRequestsPanel() {
     return () => { supabase.removeChannel(sub); };
   }, [loadLoans]);
 
-  // Filter loans based on role
   const getVisibleLoans = () => {
     let list = loans;
-    // Loan officers see pending + under_review (their own) + all for admin
-    // Branch managers see pending_approval + all for admin
     if (isLoanOfficer && !isAdmin) {
       list = list.filter(l =>
         l.status === 'pending' ||
@@ -141,6 +138,20 @@ export default function LoanRequestsPanel() {
       disbursed: 'Disbursed',
     };
     return map[s] || s;
+  };
+
+  // ── Detect maker-checker violations for a given loan and approver ─────────
+  const detectMakerCheckerViolations = (loan: LoanRequest): string[] => {
+    const violations: string[] = [];
+    // R080: Manager is the same person who forwarded (officer_id === current user)
+    if (loan.officerId && loan.officerId === user?.id) {
+      violations.push('R080');
+    }
+    // R083: Loan Officer tries to self-approve a loan they originated
+    if (isLoanOfficer && loan.officerId === user?.id) {
+      violations.push('R083');
+    }
+    return violations;
   };
 
   // ── Loan Officer: forward to branch manager ───────────────────────────────
@@ -181,7 +192,6 @@ export default function LoanRequestsPanel() {
     if (error) {
       toast.error('Failed to forward application.');
     } else {
-      // Log action for risk scoring
       logAction('APPROVE_LOAN', user?.systemAccess || 'Loan Origination', loan.customerId, {
         action: 'forward',
         loanId: loan.id,
@@ -190,7 +200,7 @@ export default function LoanRequestsPanel() {
         salary: parsedSalary,
         loanType: loan.loanType,
       });
-      toast.success(`Loan forwarded to Branch Manager for approval.`);
+      toast.success('Loan forwarded to Branch Manager for approval.');
       setActionModal(null);
       setSalary(''); setEmployment(''); setOfficerNotes('');
       setSelected(null);
@@ -215,14 +225,47 @@ export default function LoanRequestsPanel() {
     }).eq('id', loan.id);
 
     if (!error) {
-      // Log action for risk scoring
+      const makerCheckerRules: string[] = [];
+
       if (decision === 'approved') {
+        // R080: Manager is the same person who forwarded this exact loan
+        if (loan.officerId && loan.officerId === user?.id) {
+          makerCheckerRules.push('R080');
+        }
+
+        // R082: Manager approved ≥3 loans this session with no notes (rubber-stamp)
+        const sessionApprovals = (state.currentSession?.loanApprovalCount ?? 0) + 1;
+        if (sessionApprovals >= 3 && !managerNotes.trim()) {
+          makerCheckerRules.push('R082');
+        }
+
+        // R081: Collusion ring — same (officerId → managerId) pair in ≥3 approved loans in DB
+        if (loan.officerId && user?.id) {
+          const { data: collusionData } = await supabase
+            .from('loan_applications')
+            .select('id')
+            .eq('officer_id', loan.officerId)
+            .eq('manager_id', user.id)
+            .eq('status', 'approved');
+
+          if (collusionData && collusionData.length >= 3) {
+            makerCheckerRules.push('R081');
+          }
+        }
+
         logAction('APPROVE_LOAN', user?.systemAccess || 'Loan Origination', loan.customerId, {
           action: 'approve',
           loanId: loan.id,
           amount: loan.amount,
           loanType: loan.loanType,
           forwardedAt: loan.forwardedAt,
+          makerCheckerViolation: makerCheckerRules.length > 0,
+        }, makerCheckerRules);
+      } else {
+        logAction('APPROVE_LOAN', user?.systemAccess || 'Loan Origination', loan.customerId, {
+          action: 'reject',
+          loanId: loan.id,
+          amount: loan.amount,
         });
       }
 
@@ -266,6 +309,11 @@ export default function LoanRequestsPanel() {
     ? ['all', 'pending_approval', 'approved', 'rejected']
     : ['all', 'pending', 'under_review', 'pending_approval', 'approved', 'rejected'];
 
+  // For the approve modal: compute violations upfront for inline warnings
+  const approveModalViolations = actionModal?.type === 'approve'
+    ? detectMakerCheckerViolations(actionModal.loan)
+    : [];
+
   return (
     <div className="p-4 lg:p-6 space-y-5">
       {/* Header */}
@@ -287,6 +335,16 @@ export default function LoanRequestsPanel() {
         <button onClick={loadLoans} className="p-2 text-slate-400 hover:text-violet-400 hover:bg-violet-500/10 rounded-lg transition-all">
           <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
         </button>
+      </div>
+
+      {/* Maker-Checker info banner */}
+      <div className="bg-violet-500/10 border border-violet-500/20 rounded-xl p-3 flex items-start gap-3">
+        <ShieldAlert className="w-4 h-4 text-violet-400 mt-0.5 flex-shrink-0" />
+        <p className="text-xs text-violet-300">
+          <span className="font-semibold">Maker-Checker enforcement active.</span> The system automatically
+          detects bypass attempts (R080), collusion rings (R081), rubber-stamp approvals (R082), and
+          cross-role self-approvals (R083) — all trigger fraud alerts in real time.
+        </p>
       </div>
 
       {/* Filters */}
@@ -317,108 +375,138 @@ export default function LoanRequestsPanel() {
         </div>
       ) : (
         <div className="space-y-3">
-          {visible.map(loan => (
-            <div key={loan.id}
-              className="bg-[#0d1f35] border border-violet-900/30 rounded-xl p-4 hover:border-violet-700/40 transition-all cursor-pointer"
-              onClick={() => setSelected(selected?.id === loan.id ? null : loan)}>
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-violet-500/15 flex items-center justify-center flex-shrink-0">
-                    <User className="w-5 h-5 text-violet-400" />
+          {visible.map(loan => {
+            // Flag maker-checker warning on the card itself
+            const cardViolations = loan.status === 'pending_approval'
+              ? detectMakerCheckerViolations(loan)
+              : [];
+
+            return (
+              <div key={loan.id}
+                className={cn(
+                  "bg-[#0d1f35] border rounded-xl p-4 hover:border-violet-700/40 transition-all cursor-pointer",
+                  cardViolations.length > 0
+                    ? "border-red-500/40 ring-1 ring-red-500/20"
+                    : "border-violet-900/30"
+                )}
+                onClick={() => setSelected(selected?.id === loan.id ? null : loan)}>
+
+                {/* Maker-checker violation warning badge on card */}
+                {cardViolations.length > 0 && (
+                  <div className="flex items-center gap-2 mb-3 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                    <AlertTriangle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
+                    <p className="text-xs text-red-300 font-semibold">
+                      ⚠️ Maker-Checker Violation — You are the originating officer of this loan. Approving will trigger R080.
+                    </p>
                   </div>
-                  <div>
-                    <p className="text-sm font-semibold text-white">{loan.customerName}</p>
-                    <p className="text-xs text-slate-400">{loan.customerId} · {loan.loanType}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded-full",
-                        loan.kycStatus === 'Verified' ? 'text-emerald-300 bg-emerald-500/10' : 'text-amber-300 bg-amber-500/10'
-                      )}>KYC: {loan.kycStatus}</span>
+                )}
+
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-violet-500/15 flex items-center justify-center flex-shrink-0">
+                      <User className="w-5 h-5 text-violet-400" />
                     </div>
-                  </div>
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                  <p className="text-lg font-bold text-white">{formatCurrency(loan.amount)}</p>
-                  <span className={cn("text-[10px] font-bold px-2.5 py-1 rounded-full border", statusBadge(loan.status))}>
-                    {statusLabel(loan.status)}
-                  </span>
-                </div>
-              </div>
-
-              {/* Meta row */}
-              <div className="mt-3 flex items-center gap-4 text-[10px] text-slate-500">
-                <span className="flex items-center gap-1"><Clock className="w-3 h-3" />Applied: {formatDateShort(loan.createdAt)}</span>
-                {loan.tenureMonths >= 12
-                  ? <span>Tenure: {loan.tenureMonths / 12}Y</span>
-                  : <span>Tenure: {loan.tenureMonths}M</span>}
-                {loan.emi && <span className="text-violet-400">EMI: {formatCurrency(loan.emi)}/mo</span>}
-                {loan.officerName && <span>Officer: {loan.officerName}</span>}
-              </div>
-
-              {/* Expanded details */}
-              {selected?.id === loan.id && (
-                <div className="mt-4 pt-4 border-t border-slate-700/30 space-y-3">
-                  {loan.purpose && (
                     <div>
-                      <p className="text-[10px] text-slate-500 uppercase tracking-wider">Purpose</p>
-                      <p className="text-sm text-slate-300 mt-0.5">{loan.purpose}</p>
+                      <p className="text-sm font-semibold text-white">{loan.customerName}</p>
+                      <p className="text-xs text-slate-400">{loan.customerId} · {loan.loanType}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded-full",
+                          loan.kycStatus === 'Verified' ? 'text-emerald-300 bg-emerald-500/10' : 'text-amber-300 bg-amber-500/10'
+                        )}>KYC: {loan.kycStatus}</span>
+                        {loan.officerName && (
+                          <span className="text-[10px] text-slate-500">
+                            Officer: {loan.officerName}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  )}
-
-                  {/* Officer info */}
-                  {loan.officerName && (
-                    <div className="bg-sky-900/20 border border-sky-800/30 rounded-lg p-3 space-y-1">
-                      <p className="text-[10px] text-sky-400 font-semibold uppercase tracking-wider">Loan Officer Review</p>
-                      <p className="text-xs text-slate-300">Officer: {loan.officerName}</p>
-                      {loan.applicantSalary && <p className="text-xs text-slate-300">Salary: {formatCurrency(loan.applicantSalary)}/mo</p>}
-                      {loan.applicantEmployment && <p className="text-xs text-slate-300">Employment: {loan.applicantEmployment}</p>}
-                      {loan.officerNotes && <p className="text-xs text-slate-400">Notes: {loan.officerNotes}</p>}
-                      {loan.forwardedAt && <p className="text-[10px] text-slate-500">Forwarded: {formatDateShort(loan.forwardedAt)}</p>}
-                    </div>
-                  )}
-
-                  {/* Manager info */}
-                  {loan.managerName && (
-                    <div className="bg-violet-900/20 border border-violet-800/30 rounded-lg p-3 space-y-1">
-                      <p className="text-[10px] text-violet-400 font-semibold uppercase tracking-wider">Branch Manager Decision</p>
-                      <p className="text-xs text-slate-300">Manager: {loan.managerName}</p>
-                      {loan.managerNotes && <p className="text-xs text-slate-400">Notes: {loan.managerNotes}</p>}
-                      {loan.managerReviewedAt && <p className="text-[10px] text-slate-500">Reviewed: {formatDateShort(loan.managerReviewedAt)}</p>}
-                    </div>
-                  )}
-
-                  {/* Action buttons */}
-                  <div className="flex gap-2 flex-wrap">
-                    {/* Loan Officer can forward pending loans */}
-                    {(isLoanOfficer || isAdmin) && loan.status === 'pending' && (
-                      <button
-                        onClick={e => { e.stopPropagation(); setActionModal({ loan, type: 'forward' }); setSalary(''); setEmployment(''); setOfficerNotes(''); }}
-                        className="flex items-center gap-2 px-4 py-2 bg-sky-600/20 hover:bg-sky-600/30 border border-sky-500/30 text-sky-300 rounded-lg text-xs font-semibold transition-all">
-                        <Send className="w-3.5 h-3.5" /> Forward to Manager
-                      </button>
-                    )}
-                    {/* Branch Manager / Admin can approve or reject pending_approval */}
-                    {(isBranchManager || isAdmin) && loan.status === 'pending_approval' && (
-                      <>
-                        <button
-                          onClick={e => { e.stopPropagation(); setActionModal({ loan, type: 'approve' }); setManagerNotes(''); }}
-                          className="flex items-center gap-2 px-4 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 text-emerald-300 rounded-lg text-xs font-semibold transition-all">
-                          <CheckCircle className="w-3.5 h-3.5" /> Approve
-                        </button>
-                        <button
-                          onClick={e => { e.stopPropagation(); setActionModal({ loan, type: 'reject' }); setManagerNotes(''); }}
-                          className="flex items-center gap-2 px-4 py-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 text-red-300 rounded-lg text-xs font-semibold transition-all">
-                          <XCircle className="w-3.5 h-3.5" /> Reject
-                        </button>
-                      </>
-                    )}
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                    <p className="text-lg font-bold text-white">{formatCurrency(loan.amount)}</p>
+                    <span className={cn("text-[10px] font-bold px-2.5 py-1 rounded-full border", statusBadge(loan.status))}>
+                      {statusLabel(loan.status)}
+                    </span>
                   </div>
                 </div>
-              )}
-              <div className="mt-2 flex justify-end">
-                <ChevronRight className={cn("w-4 h-4 text-slate-600 transition-transform", selected?.id === loan.id && "rotate-90")} />
+
+                {/* Meta row */}
+                <div className="mt-3 flex items-center gap-4 text-[10px] text-slate-500">
+                  <span className="flex items-center gap-1"><Clock className="w-3 h-3" />Applied: {formatDateShort(loan.createdAt)}</span>
+                  {loan.tenureMonths >= 12
+                    ? <span>Tenure: {loan.tenureMonths / 12}Y</span>
+                    : <span>Tenure: {loan.tenureMonths}M</span>}
+                  {loan.emi && <span className="text-violet-400">EMI: {formatCurrency(loan.emi)}/mo</span>}
+                </div>
+
+                {/* Expanded details */}
+                {selected?.id === loan.id && (
+                  <div className="mt-4 pt-4 border-t border-slate-700/30 space-y-3">
+                    {loan.purpose && (
+                      <div>
+                        <p className="text-[10px] text-slate-500 uppercase tracking-wider">Purpose</p>
+                        <p className="text-sm text-slate-300 mt-0.5">{loan.purpose}</p>
+                      </div>
+                    )}
+
+                    {/* Officer info */}
+                    {loan.officerName && (
+                      <div className="bg-sky-900/20 border border-sky-800/30 rounded-lg p-3 space-y-1">
+                        <p className="text-[10px] text-sky-400 font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                          Loan Officer (Maker)
+                          {loan.officerId === user?.id && (
+                            <span className="bg-red-500/20 text-red-300 border border-red-500/30 px-1.5 py-0.5 rounded text-[9px] font-bold">YOU</span>
+                          )}
+                        </p>
+                        <p className="text-xs text-slate-300">Officer: {loan.officerName}</p>
+                        {loan.applicantSalary && <p className="text-xs text-slate-300">Salary: {formatCurrency(loan.applicantSalary)}/mo</p>}
+                        {loan.applicantEmployment && <p className="text-xs text-slate-300">Employment: {loan.applicantEmployment}</p>}
+                        {loan.officerNotes && <p className="text-xs text-slate-400">Notes: {loan.officerNotes}</p>}
+                        {loan.forwardedAt && <p className="text-[10px] text-slate-500">Forwarded: {formatDateShort(loan.forwardedAt)}</p>}
+                      </div>
+                    )}
+
+                    {/* Manager info */}
+                    {loan.managerName && (
+                      <div className="bg-violet-900/20 border border-violet-800/30 rounded-lg p-3 space-y-1">
+                        <p className="text-[10px] text-violet-400 font-semibold uppercase tracking-wider">Branch Manager (Checker)</p>
+                        <p className="text-xs text-slate-300">Manager: {loan.managerName}</p>
+                        {loan.managerNotes && <p className="text-xs text-slate-400">Notes: {loan.managerNotes}</p>}
+                        {loan.managerReviewedAt && <p className="text-[10px] text-slate-500">Reviewed: {formatDateShort(loan.managerReviewedAt)}</p>}
+                      </div>
+                    )}
+
+                    {/* Action buttons */}
+                    <div className="flex gap-2 flex-wrap">
+                      {(isLoanOfficer || isAdmin) && loan.status === 'pending' && (
+                        <button
+                          onClick={e => { e.stopPropagation(); setActionModal({ loan, type: 'forward' }); setSalary(''); setEmployment(''); setOfficerNotes(''); }}
+                          className="flex items-center gap-2 px-4 py-2 bg-sky-600/20 hover:bg-sky-600/30 border border-sky-500/30 text-sky-300 rounded-lg text-xs font-semibold transition-all">
+                          <Send className="w-3.5 h-3.5" /> Forward to Manager
+                        </button>
+                      )}
+                      {(isBranchManager || isAdmin) && loan.status === 'pending_approval' && (
+                        <>
+                          <button
+                            onClick={e => { e.stopPropagation(); setActionModal({ loan, type: 'approve' }); setManagerNotes(''); }}
+                            className="flex items-center gap-2 px-4 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 text-emerald-300 rounded-lg text-xs font-semibold transition-all">
+                            <CheckCircle className="w-3.5 h-3.5" /> Approve
+                          </button>
+                          <button
+                            onClick={e => { e.stopPropagation(); setActionModal({ loan, type: 'reject' }); setManagerNotes(''); }}
+                            className="flex items-center gap-2 px-4 py-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 text-red-300 rounded-lg text-xs font-semibold transition-all">
+                            <XCircle className="w-3.5 h-3.5" /> Reject
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+                <div className="mt-2 flex justify-end">
+                  <ChevronRight className={cn("w-4 h-4 text-slate-600 transition-transform", selected?.id === loan.id && "rotate-90")} />
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -432,7 +520,6 @@ export default function LoanRequestsPanel() {
               <h3 className="text-base font-bold text-white">Forward to Branch Manager</h3>
             </div>
 
-            {/* KYC Warning */}
             {actionModal.loan.kycStatus !== 'Verified' && (
               <div className="mb-4 flex items-start gap-2 bg-red-500/10 border border-red-500/30 rounded-lg p-3">
                 <AlertTriangle className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
@@ -463,7 +550,6 @@ export default function LoanRequestsPanel() {
                   className="w-full bg-[#060e1a] border border-slate-700/40 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-sky-500/50 resize-none" />
               </div>
 
-              {/* Eligibility summary */}
               {salary && parseFloat(salary) > 0 && (
                 <div className="bg-sky-900/20 border border-sky-800/30 rounded-lg p-3">
                   <p className="text-[10px] text-sky-400 font-semibold uppercase tracking-wider mb-1">Eligibility Check</p>
@@ -499,9 +585,35 @@ export default function LoanRequestsPanel() {
                 ? <CheckCircle className="w-5 h-5 text-emerald-400" />
                 : <XCircle className="w-5 h-5 text-red-400" />}
               <h3 className="text-base font-bold text-white">
-                {actionModal.type === 'approve' ? 'Approve Loan' : 'Reject Loan'}
+                {actionModal.type === 'approve' ? 'Approve Loan (Checker)' : 'Reject Loan'}
               </h3>
             </div>
+
+            {/* Maker-Checker violation warnings */}
+            {approveModalViolations.includes('R080') && (
+              <div className="mb-3 flex items-start gap-2 bg-red-500/10 border border-red-500/40 rounded-lg p-3">
+                <ShieldAlert className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-xs text-red-300 font-bold">Maker-Checker Bypass Detected (R080)</p>
+                  <p className="text-[11px] text-red-300/80 mt-0.5">
+                    You forwarded this loan as the Loan Officer. Approving it now violates the maker-checker principle and will trigger a fraud alert.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Rubber-stamp warning */}
+            {(state.currentSession?.loanApprovalCount ?? 0) >= 2 && actionModal.type === 'approve' && (
+              <div className="mb-3 flex items-start gap-2 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+                <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-xs text-amber-300 font-bold">Rubber-Stamp Risk (R082)</p>
+                  <p className="text-[11px] text-amber-300/80 mt-0.5">
+                    This is your {(state.currentSession?.loanApprovalCount ?? 0) + 1}th approval this session. Include remarks to avoid a rubber-stamp fraud alert.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Loan summary */}
             <div className="mb-4 bg-violet-900/20 border border-violet-800/30 rounded-lg p-3 space-y-1">
@@ -529,6 +641,14 @@ export default function LoanRequestsPanel() {
                   <span className="text-white">{actionModal.loan.applicantEmployment}</span>
                 </div>
               )}
+              {/* Maker info */}
+              <div className="flex justify-between text-xs pt-1 border-t border-violet-800/20">
+                <span className="text-slate-400">Maker (Officer)</span>
+                <span className={cn("font-medium", actionModal.loan.officerId === user?.id ? 'text-red-300' : 'text-white')}>
+                  {actionModal.loan.officerName ?? '—'}
+                  {actionModal.loan.officerId === user?.id && ' (YOU ⚠️)'}
+                </span>
+              </div>
               {actionModal.loan.officerNotes && (
                 <div className="pt-1 border-t border-violet-800/20">
                   <p className="text-[10px] text-slate-500">Officer Notes: {actionModal.loan.officerNotes}</p>
@@ -537,9 +657,11 @@ export default function LoanRequestsPanel() {
             </div>
 
             <div className="mb-4">
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wider">Manager Remarks</label>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wider">
+                Manager Remarks {actionModal.type === 'approve' && (state.currentSession?.loanApprovalCount ?? 0) >= 2 && <span className="text-amber-400">*</span>}
+              </label>
               <textarea value={managerNotes} onChange={e => setManagerNotes(e.target.value)} rows={3}
-                placeholder={actionModal.type === 'approve' ? 'e.g. All criteria met, approved' : 'e.g. Insufficient income documentation'}
+                placeholder={actionModal.type === 'approve' ? 'e.g. All criteria met, income verified, approved' : 'e.g. Insufficient income documentation'}
                 className="w-full bg-[#060e1a] border border-slate-700/40 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-violet-500/50 resize-none" />
             </div>
 
@@ -550,9 +672,15 @@ export default function LoanRequestsPanel() {
                 disabled={processing}
                 className={cn(
                   "flex-1 py-2.5 text-sm text-white font-semibold rounded-lg transition-all disabled:opacity-50",
-                  actionModal.type === 'approve' ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-red-600 hover:bg-red-500'
+                  actionModal.type === 'approve'
+                    ? approveModalViolations.length > 0 ? 'bg-red-700 hover:bg-red-600' : 'bg-emerald-600 hover:bg-emerald-500'
+                    : 'bg-red-600 hover:bg-red-500'
                 )}>
-                {processing ? 'Processing...' : actionModal.type === 'approve' ? 'Approve Loan' : 'Reject Application'}
+                {processing
+                  ? 'Processing...'
+                  : actionModal.type === 'approve'
+                    ? approveModalViolations.length > 0 ? 'Approve Anyway (Fraud Alert Will Fire)' : 'Approve Loan'
+                    : 'Reject Application'}
               </button>
             </div>
           </div>
