@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { X, Eye, Phone, Mail, DollarSign, FileText, Zap, CreditCard, AlertTriangle, Pencil } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Phone, Mail, DollarSign, FileText, Zap, CreditCard, AlertTriangle, Pencil } from 'lucide-react';
 import { useApp } from '@/lib/store';
 import { cn, maskAadhaar, maskPAN, formatCurrency, formatDateShort, formatDate, generateId } from '@/lib/utils';
 import type { Customer } from '@/types';
@@ -16,6 +16,12 @@ type ActionModal = 'none' | 'modify_contact' | 'transaction' | 'report' | 'loan'
 export default function CustomerProfile({ customer, onClose }: Props) {
   const { logAction, updateCustomer, state } = useApp();
   const [actionModal, setActionModal] = useState<ActionModal>('none');
+
+  // Auto-log VIEW_ACCOUNT when the profile is opened
+  useEffect(() => {
+    logAction('VIEW_ACCOUNT', currentUser?.systemAccess || 'Core Banking', customer.id, {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Modify Contact Form
   const [newMobile, setNewMobile] = useState(customer.mobile);
@@ -37,11 +43,6 @@ export default function CustomerProfile({ customer, onClose }: Props) {
 
   const isDormant = customer.accountStatus === 'Dormant';
   const { currentUser } = state;
-
-  const handleViewAccount = () => {
-    logAction('VIEW_ACCOUNT', currentUser?.systemAccess || 'Core Banking', customer.id, {});
-    toast.success(`Viewing account ${customer.id}`);
-  };
 
   const handleModifyContact = (e: React.FormEvent) => {
     e.preventDefault();
@@ -212,12 +213,6 @@ export default function CustomerProfile({ customer, onClose }: Props) {
 
           {/* Action Buttons */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <button
-              onClick={() => { handleViewAccount(); }}
-              className="flex items-center gap-2 px-4 py-3 bg-sky-600/20 hover:bg-sky-600/30 border border-sky-500/30 text-sky-300 rounded-xl text-sm font-medium transition-all"
-            >
-              <Eye className="w-4 h-4" /> View Account
-            </button>
             <button
               onClick={() => setActionModal('modify_contact')}
               className="flex items-center gap-2 px-4 py-3 bg-sky-600/10 hover:bg-sky-600/20 border border-sky-500/30 text-sky-300 rounded-xl text-sm font-medium transition-all"
