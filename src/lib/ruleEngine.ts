@@ -211,6 +211,10 @@ export function predictScamType(allRuleIds: string[]): { scamType: ScamType; con
       rules: [['R070'], ['R071', 'R072'], ['R073']],
     },
     {
+      type: 'Maker-Checker Collusion',
+      rules: [['R063','R090'], ['R060','R093'], ['R094'], ['R095','R096'], ['R097']],
+    },
+    {
       type: 'Maker-Checker Bypass',
       rules: [['R080'], ['R081'], ['R082'], ['R083']],
     },
@@ -294,6 +298,19 @@ export function generateExplanation(
   if (has('R081')) parts.push('is part of a confirmed collusion ring — the same Loan Officer → Branch Manager pair has approved 3 or more loans together (R081)');
   if (has('R082')) parts.push('approved 3 or more loans this session without any review remarks — pattern consistent with rubber-stamp fraud (R082)');
   if (has('R083')) parts.push('attempted to self-approve a loan they originated as Loan Officer, violating cross-role separation of duties (R083)');
+
+  // Maker-Checker Collusion rules
+  if (has('R060')) parts.push('is part of a maker-checker pair that has collaborated more than 10 times this month (R060: frequency threshold exceeded)');
+  if (has('R062')) parts.push('approved a transaction within 2 minutes of initiation — insufficient review time suggests pre-coordination (R062)');
+  if (has('R063')) parts.push('the Maker and Checker share the same IP address — possible same terminal or session hijack (R063)');
+  if (has('R090')) parts.push('the Maker and Checker are using the same device fingerprint simultaneously — device sharing or cloning detected (R090)');
+  if (has('R091')) parts.push('a transaction was approved on a bank holiday or weekend — off-schedule approval bypasses normal oversight (R091)');
+  if (has('R092')) parts.push('a transaction was initiated in the final 10 minutes before system closure — end-of-day blind spot exploitation (R092)');
+  if (has('R093')) parts.push('the same maker-checker pair jointly approved over ₹50 lakh in transactions this month — volume threshold exceeded (R093)');
+  if (has('R094')) parts.push('the Maker and Checker share the same registered home address — familial or residential collusion suspected (R094)');
+  if (has('R095')) parts.push('the Checker has a 0% rejection rate for this Maker — never rejected a single transaction, suggesting rubber-stamp collusion (R095)');
+  if (has('R096')) parts.push('the Maker routes 100% of their transactions exclusively to this single Checker — exclusive routing pattern detected (R096)');
+  if (has('R097')) parts.push('both the Maker and Checker are logged in simultaneously from outside bank-registered premises (R097)');
 
   if (parts.length === 0) parts.push('performed multiple suspicious actions triggering risk rules');
 

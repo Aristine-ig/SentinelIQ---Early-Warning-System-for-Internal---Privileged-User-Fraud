@@ -70,7 +70,9 @@ export type ActionType =
   | 'VIEW_AUDIT_LOG'
   | 'DELETE_AUDIT_LOG_ATTEMPT'
   | 'APPLY_CONTACT_CHANGE'
-  | 'REJECT_CONTACT_CHANGE';
+  | 'REJECT_CONTACT_CHANGE'
+  | 'APPROVE_TRANSACTION'
+  | 'INITIATE_TRANSFER';
 
 export interface ActivityLog {
   id: string;
@@ -104,6 +106,7 @@ export type ScamType =
   | 'After-Hours Exfiltration'
   | 'Unauthorized Contact Modification'
   | 'Maker-Checker Bypass'
+  | 'Maker-Checker Collusion'
   | 'General Suspicious Activity';
 
 export type ConfidenceLevel = 'LOW' | 'MEDIUM' | 'HIGH';
@@ -147,6 +150,26 @@ export interface SessionData {
   loanForwardCount: number;
   loanApprovalCount: number;
   loanActions: Array<{ type: string; loanId: string; amount: number; kycStatus?: string; salary?: number; timestamp: string }>;
+  // Maker-Checker tracking
+  transactionApprovalCount: number;
+  makerCheckerActions: Array<{
+    txId: string;
+    makerId: string;
+    makerName: string;
+    makerIp: string;
+    makerDevice: string;
+    checkerId?: string;
+    checkerName?: string;
+    checkerIp?: string;
+    checkerDevice?: string;
+    amount: number;
+    initiatedAt: string;
+    approvedAt?: string;
+    status: 'pending' | 'approved' | 'rejected';
+    customerId: string;
+    beneficiary: string;
+    isOffPremises?: boolean;
+  }>;
 }
 
 export interface RiskHistory {

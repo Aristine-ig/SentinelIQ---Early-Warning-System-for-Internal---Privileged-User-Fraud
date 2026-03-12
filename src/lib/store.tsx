@@ -101,6 +101,8 @@ function mapSession(r: DbSession): SessionData {
     loanForwardCount: r.loan_forward_count ?? 0,
     loanApprovalCount: r.loan_approval_count ?? 0,
     loanActions: r.loan_actions ?? [],
+    transactionApprovalCount: (r as any).transaction_approval_count ?? 0,
+    makerCheckerActions: (r as any).maker_checker_actions ?? [],
   };
 }
 
@@ -197,6 +199,8 @@ function sessionToDb(s: SessionData): DbSession {
     loan_forward_count: s.loanForwardCount ?? 0,
     loan_approval_count: s.loanApprovalCount ?? 0,
     loan_actions: s.loanActions ?? [],
+    transaction_approval_count: s.transactionApprovalCount ?? 0,
+    maker_checker_actions: s.makerCheckerActions ?? [],
     updated_at: new Date().toISOString(),
   };
 }
@@ -255,6 +259,8 @@ function createSession(user: AppUser, failedAttempts: number): SessionData {
     loanForwardCount: 0,
     loanApprovalCount: 0,
     loanActions: [],
+    transactionApprovalCount: 0,
+    makerCheckerActions: [],
   };
 }
 
@@ -724,6 +730,111 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         { customerId: customerId || '', amount, timestamp: new Date().toISOString(), beneficiary },
       ];
       if (Math.random() < 0.3) mutableExtraRules = [...mutableExtraRules, 'R034'];
+
+      // Track as maker-checker pending transaction
+      const txId = `TX${Date.now()}`;
+      const makerDevice = metadata.deviceFingerprint as string || `DEV-${updatedSession.ip.replace(/\./g, '')}${Math.floor(Math.random() * 1000)}`;
+      const isOffPremises = metadata.isOffPremises as boolean || (Math.random() < 0.2);
+      updatedSession.makerCheckerActions = [
+        ...(updatedSession.makerCheckerActions ?? []),
+        {
+          txId,
+          makerId: s.currentUser!.id,
+          makerName: s.currentUser!.fullName,
+          makerIp: updatedSession.ip,
+          makerDevice,
+          amount,
+          initiatedAt: new Date().toISOString(),
+          status: 'pending',
+          customerId: customerId || '',
+          beneficiary,
+          isOffPremises,
+        },
+      ];
+
+      // R092: Transaction initiated within 10 min of system close (5:50 PM–6:00 PM)
+      const nowHour = new Date().getHours();
+      const nowMin = new Date().getMinutes();
+      if (nowHour === 17 && nowMin >= 50) mutableExtraRules = [...mutableExtraRules, 'R092'];
+    }
+
+    if (actionType === 'APPROVE_TRANSACTION') {
+      const txId = metadata.txId as string;
+      const makerIp = metadata.makerIp as string || '';
+      const makerDevice = metadata.makerDevice as string || '';
+      const checkerDevice = metadata.checkerDevice as string || `DEV-${updatedSession.ip.replace(/\./g, '')}${Math.floor(Math.random() * 1000)}`;
+      const decision = metadata.decision as 'approved' | 'rejected';
+      const initiatedAt = metadata.initiatedAt as string;
+      const amount = (metadata.amount as number) || 0;
+      const makerId = metadata.makerId as string || '';
+      const isOffPremises = metadata.isOffPremises as boolean || false;
+      const checkerIsOffPremises = metadata.checkerIsOffPremises as boolean || (Math.random() < 0.2);
+      const homeAddressMatch = metadata.homeAddressMatch as boolean || false;
+      const pairApprovalCount = (metadata.pairApprovalCount as number) || 0;
+      const pairTotalAmount = (metadata.pairTotalAmount as number) || 0;
+      const checkerRejectionRate = (metadata.checkerRejectionRate as number) ?? 1;
+      const makerExclusivity = (metadata.makerExclusivity as number) ?? 0;
+      const now = new Date();
+
+      if (decision === 'approved') {
+        updatedSession.transactionApprovalCount = (updatedSession.transactionApprovalCount ?? 0) + 1;
+
+        // Update the corresponding maker action
+        updatedSession.makerCheckerActions = (updatedSession.makerCheckerActions ?? []).map(a =>
+          a.txId === txId ? { ...a, checkerId: s.currentUser!.id, checkerName: s.currentUser!.fullName, checkerIp: updatedSession.ip, checkerDevice, approvedAt: now.toISOString(), status: 'approved' } : a
+        );
+
+        // R063: Same IP
+        if (makerIp && makerIp === updatedSession.ip) mutableExtraRules = [...mutableExtraRules, 'R063'];
+        // R090: Same device fingerprint
+        if (makerDevice && makerDevice === checkerDevice) mutableExtraRules = [...mutableExtraRules, 'R090'];
+        // R091: Approval on holiday/weekend
+        if (isWeekend(now)) mutableExtraRules = [...mutableExtraRules, 'R091'];
+        // R062: Approved within 2 minutes
+        if (initiatedAt) {
+          const minsDiff = (now.getTime() - new Date(initiatedAt).getTime()) / 60000;
+          if (minsDiff < 2) mutableExtraRules = [...mutableExtraRules, 'R062'];
+        }
+        // R093: Pair volume > ₹50L
+        if (pairTotalAmount + amount > 5000000) mutableExtraRules = [...mutableExtraRules, 'R093'];
+        // R060: Pair count > 10
+        if (pairApprovalCount >= 10) mutableExtraRules = [...mutableExtraRules, 'R060'];
+        // R094: Shared home address
+        if (homeAddressMatch) mutableExtraRules = [...mutableExtraRules, 'R094'];
+        // R095: Zero rejection rate
+        if (checkerRejectionRate === 0) mutableExtraRules = [...mutableExtraRules, 'R095'];
+        // R096: Maker exclusivity (100% to same checker)
+        if (makerExclusivity >= 1) mutableExtraRules = [...mutableExtraRules, 'R096'];
+        // R097: Both off-premises
+        if (isOffPremises && checkerIsOffPremises) mutableExtraRules = [...mutableExtraRules, 'R097'];
+
+        // Insert into maker_checker_transactions table
+        supabase.from('maker_checker_transactions').insert({
+          id: `MCT${Date.now()}`,
+          tx_id: txId,
+          maker_id: makerId,
+          maker_name: metadata.makerName as string || '',
+          maker_ip: makerIp,
+          maker_device: makerDevice,
+          checker_id: s.currentUser!.id,
+          checker_name: s.currentUser!.fullName,
+          checker_ip: updatedSession.ip,
+          checker_device: checkerDevice,
+          amount,
+          customer_id: customerId || null,
+          initiated_at: initiatedAt,
+          approved_at: now.toISOString(),
+          status: decision,
+          collusion_rules: mutableExtraRules.filter(r => ['R060','R062','R063','R090','R091','R092','R093','R094','R095','R096','R097'].includes(r)),
+          is_off_premises_maker: isOffPremises,
+          is_off_premises_checker: checkerIsOffPremises,
+        }).then(({ error }) => { if (error) console.error('MCT insert error:', error); });
+      } else {
+        // Rejected — update action status
+        updatedSession.makerCheckerActions = (updatedSession.makerCheckerActions ?? []).map(a =>
+          a.txId === txId ? { ...a, checkerId: s.currentUser!.id, checkerName: s.currentUser!.fullName, approvedAt: now.toISOString(), status: 'rejected' } : a
+        );
+      }
     }
 
     if (actionType === 'RUN_REPORT') {
