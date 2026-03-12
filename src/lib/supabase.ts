@@ -99,16 +99,14 @@ export interface DbRiskHistory {
   score: number;
 }
 
-export interface DbContactChangeRequest {
+export interface DbChangeRequest {
   id: string;
   customer_id: string;
-  requested_mobile: string | null;
-  requested_email: string | null;
-  reason: string | null;
+  requested_fields: { mobile?: string; email?: string; [key: string]: string | undefined };
   status: string;
-  requested_at: string;
   reviewed_by: string | null;
   reviewed_by_name: string | null;
   reviewed_at: string | null;
-  rejection_reason: string | null;
+  teller_notes: string | null;
+  created_at: string;
 }
