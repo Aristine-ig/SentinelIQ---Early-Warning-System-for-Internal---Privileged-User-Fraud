@@ -36,8 +36,8 @@ export default function AlertFeed() {
   };
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
+    <div className="p-4 lg:p-6">
+      <div className="flex items-center justify-between mb-4 lg:mb-6">
         <div>
           <h2 className="text-lg font-bold text-white">Live Alert Feed</h2>
           <p className="text-sm text-slate-400">{filtered.length} alerts • Auto-refreshing</p>
@@ -49,14 +49,14 @@ export default function AlertFeed() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-5">
-        <div className="flex gap-1 bg-[#0d1f35] border border-slate-700/40 rounded-lg p-1">
+      <div className="flex flex-col gap-2 mb-4 lg:mb-5">
+        <div className="flex gap-1 bg-[#0d1f35] border border-slate-700/40 rounded-lg p-1 overflow-x-auto flex-nowrap">
           {STATUS_FILTERS.map(f => (
             <button
               key={f.value}
               onClick={() => setStatusFilter(f.value)}
               className={cn(
-                "px-3 py-1.5 rounded-md text-xs font-medium transition-all",
+                "px-2.5 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap flex-shrink-0",
                 statusFilter === f.value
                   ? "bg-sky-600 text-white"
                   : "text-slate-400 hover:text-white"
@@ -66,13 +66,13 @@ export default function AlertFeed() {
             </button>
           ))}
         </div>
-        <div className="flex gap-1 bg-[#0d1f35] border border-slate-700/40 rounded-lg p-1">
+        <div className="flex gap-1 bg-[#0d1f35] border border-slate-700/40 rounded-lg p-1 overflow-x-auto flex-nowrap">
           {SEVERITY_FILTERS.map(s => (
             <button
               key={s}
               onClick={() => setSeverityFilter(s)}
               className={cn(
-                "px-3 py-1.5 rounded-md text-xs font-medium transition-all",
+                "px-2.5 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap flex-shrink-0",
                 severityFilter === s
                   ? "bg-sky-600 text-white"
                   : "text-slate-400 hover:text-white"
@@ -104,7 +104,7 @@ export default function AlertFeed() {
               )}
             >
               <div className="flex items-start gap-3">
-                <div className="mt-0.5">
+                <div className="mt-0.5 flex-shrink-0">
                   {alert.severity === 'Severe' || alert.severity === 'Critical' ? (
                     <AlertTriangle className="w-4 h-4 text-red-400" />
                   ) : (
@@ -112,16 +112,16 @@ export default function AlertFeed() {
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-mono text-slate-400">{alert.id}</span>
-                    <span className={cn("text-xs font-bold px-2 py-0.5 rounded border", getSeverityBg(alert.severity))}>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] font-mono text-slate-500 hidden sm:inline">{alert.id}</span>
+                    <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded border", getSeverityBg(alert.severity))}>
                       {alert.severity}
                     </span>
-                    <span className="text-xs text-slate-500 bg-slate-700/40 px-2 py-0.5 rounded">
+                    <span className="text-[10px] text-slate-500 bg-slate-700/40 px-1.5 py-0.5 rounded hidden sm:inline">
                       {alert.scamType}
                     </span>
                     <span className={cn(
-                      "text-xs px-2 py-0.5 rounded border",
+                      "text-[10px] px-1.5 py-0.5 rounded border",
                       alert.status === 'open' ? 'text-sky-300 bg-sky-500/10 border-sky-500/30' :
                       alert.status === 'escalated' ? 'text-purple-300 bg-purple-500/10 border-purple-500/30' :
                       alert.status === 'false_positive' ? 'text-slate-300 bg-slate-500/10 border-slate-500/30' :
@@ -130,18 +130,19 @@ export default function AlertFeed() {
                       {alert.status.replace('_', ' ')}
                     </span>
                   </div>
-                  <div className="flex items-center gap-4 mt-1.5">
+                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                     <span className="flex items-center gap-1 text-sm font-medium text-white">
                       <User className="w-3 h-3 text-slate-400" />
                       {alert.userName}
                     </span>
-                    <span className="text-xs text-slate-400">{alert.role}</span>
-                    <span className="text-xs font-bold text-white">Score: {alert.totalScore}/100</span>
+                    <span className="text-xs text-slate-400 hidden sm:inline">{alert.role}</span>
+                    <span className="text-xs font-bold text-amber-300">{alert.totalScore}/100</span>
                   </div>
-                  <p className="text-xs text-slate-400 mt-1 line-clamp-1">{alert.explanation}</p>
+                  <p className="text-xs text-slate-400 mt-1 line-clamp-2 sm:line-clamp-1">{alert.explanation}</p>
+                  <p className="text-[10px] text-slate-500 mt-1 sm:hidden">{alert.scamType}</p>
                 </div>
-                <div className="flex items-center gap-3 flex-shrink-0">
-                  <div className="text-right">
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="text-right hidden sm:block">
                     <div className="flex items-center gap-1 text-xs text-slate-500">
                       <Clock className="w-3 h-3" />
                       {formatDate(alert.timestamp)}

@@ -145,23 +145,23 @@ export default function LoginPage() {
             <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-3">
               Demo Credentials
             </p>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {[
                 { label: 'Admin', id: 'admin', pass: 'admin123' },
                 { label: 'Teller', id: 'sneha.patel', pass: 'Pass@1234' },
                 { label: 'Loan Officer', id: 'rohit.mehta', pass: 'Pass@1234' },
                 { label: 'Treasury Analyst', id: 'priya.iyer', pass: 'Pass@1234' },
-                { label: 'DB Administrator', id: 'arjun.sharma', pass: 'Pass@1234' },
+                { label: 'DB Admin', id: 'arjun.sharma', pass: 'Pass@1234' },
               ].map(cred => (
                 <button
                   key={cred.id}
                   type="button"
                   onClick={() => fillCredentials(cred.id, cred.pass)}
-                  className="w-full flex items-center justify-between bg-[#0a1628] rounded-lg px-3 py-2 cursor-pointer hover:bg-[#0f2040] transition-colors"
+                  className="w-full flex items-center justify-between bg-[#0a1628] rounded-lg px-3 py-2 cursor-pointer hover:bg-[#0f2040] transition-colors gap-2"
                 >
-                  <span className="text-xs text-slate-300">{cred.label}</span>
-                  <span className="text-xs text-sky-400 font-mono">
-                    {cred.id} / {cred.pass}
+                  <span className="text-xs text-slate-300 font-medium flex-shrink-0">{cred.label}</span>
+                  <span className="text-[10px] text-sky-400 font-mono truncate text-right">
+                    {cred.id}
                   </span>
                 </button>
               ))}

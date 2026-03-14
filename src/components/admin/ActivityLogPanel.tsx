@@ -57,11 +57,11 @@ export default function ActivityLogPanel() {
   };
 
   return (
-    <div className="p-6 space-y-5">
-      <div className="flex items-center justify-between">
+    <div className="p-4 lg:p-6 space-y-4 lg:space-y-5">
+      <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-white">Activity Log</h2>
-          <p className="text-sm text-slate-400">{filtered.length} entries</p>
+          <p className="text-xs text-slate-400">{filtered.length} entries</p>
         </div>
         <button
           onClick={handleExport}
@@ -73,8 +73,8 @@ export default function ActivityLogPanel() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <div className="relative flex-1 min-w-[200px]">
+      <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3">
+        <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
@@ -102,9 +102,9 @@ export default function ActivityLogPanel() {
         </select>
       </div>
 
-      {/* Table */}
+      {/* Table — desktop */}
       <div className="bg-[#0d1f35] border border-slate-700/40 rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="hidden sm:block overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-700/40 bg-[#060e1a]/50">
@@ -153,6 +153,30 @@ export default function ActivityLogPanel() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile card list */}
+        <div className="sm:hidden divide-y divide-slate-700/30">
+          {paginated.length === 0 ? (
+            <p className="text-center py-10 text-slate-500 text-sm">No logs match the current filters</p>
+          ) : paginated.map(log => (
+            <div key={log.id} className="p-3 space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded", getActionColor(log.actionType))}>
+                  {log.actionType}
+                </span>
+                <span className="text-[10px] text-slate-500">{formatDate(log.timestamp)}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <p className="text-xs font-medium text-white">{log.userName}</p>
+                <span className="text-[10px] text-slate-500">{log.system}</span>
+              </div>
+              {log.customerName && (
+                <p className="text-[10px] text-slate-400">{log.customerName} ({log.customerId})</p>
+              )}
+              <p className="text-[10px] font-mono text-slate-600">{log.ip}</p>
+            </div>
+          ))}
         </div>
 
         {/* Pagination */}

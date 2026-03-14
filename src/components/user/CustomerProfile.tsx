@@ -154,7 +154,7 @@ export default function CustomerProfile({ customer, onClose }: Props) {
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-[#0d1f35] border border-slate-700/50 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
         {/* Header */}
-        <div className="sticky top-0 bg-[#0d1f35] border-b border-slate-700/50 px-6 py-4 flex items-center justify-between z-10">
+        <div className="sticky top-0 bg-[#0d1f35] border-b border-slate-700/50 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between z-10">
           <div className="flex items-center gap-3">
             {isDormant && <AlertTriangle className="w-5 h-5 text-red-400 animate-pulse" />}
             <div>
@@ -167,7 +167,7 @@ export default function CustomerProfile({ customer, onClose }: Props) {
           </button>
         </div>
 
-        <div className="p-6 space-y-5">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
           {/* Dormant Warning */}
           {isDormant && (
             <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-start gap-3">
@@ -183,7 +183,7 @@ export default function CustomerProfile({ customer, onClose }: Props) {
           )}
 
           {/* Customer Details */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {[
               { label: 'Account Number', value: customer.accountNumber },
               { label: 'Account Type', value: customer.accountType },
@@ -212,7 +212,7 @@ export default function CustomerProfile({ customer, onClose }: Props) {
           </div>
 
           {/* Action Buttons */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-2.5">
             <button
               onClick={() => setActionModal('modify_contact')}
               className="flex items-center gap-2 px-4 py-3 bg-sky-600/10 hover:bg-sky-600/20 border border-sky-500/30 text-sky-300 rounded-xl text-sm font-medium transition-all"

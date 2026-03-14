@@ -194,34 +194,57 @@ export default function DashboardLayout({ activePanel, onPanelChange, children }
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top bar */}
-        <header className="bg-[#0d1f35]/80 border-b border-slate-700/50 px-4 py-3 flex items-center gap-4 flex-shrink-0 backdrop-blur-sm">
+        <header className="bg-[#0d1f35]/80 border-b border-slate-700/50 px-3 sm:px-4 py-2.5 flex items-center gap-3 flex-shrink-0 backdrop-blur-sm">
           <button
             onClick={() => setMobileOpen(true)}
-            className="lg:hidden p-2 text-slate-400 hover:text-white"
+            className="lg:hidden p-2 text-slate-400 hover:text-white min-w-[44px] min-h-[44px] flex items-center justify-center"
           >
             <Menu className="w-5 h-5" />
           </button>
 
-          <div className="flex-1">
-            <h1 className="text-sm font-semibold text-white">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-sm font-semibold text-white truncate">
               {visibleItems.find(i => i.id === activePanel)?.label || 'Dashboard'}
             </h1>
             {isAdmin && (
-              <p className="text-xs text-slate-500">Administrator · All Systems</p>
+              <p className="text-xs text-slate-500 hidden sm:block">Administrator · All Systems</p>
             )}
           </div>
 
           {/* Severe warning */}
           {severity === 'Severe' && (
-            <div className="flex items-center gap-2 bg-rose-500/20 border border-rose-500/40 rounded-lg px-3 py-1.5 animate-pulse">
-              <AlertTriangle className="w-4 h-4 text-rose-400" />
-              <span className="text-xs font-bold text-rose-300">SEVERE RISK — Session flagged</span>
+            <div className="flex items-center gap-1.5 bg-rose-500/20 border border-rose-500/40 rounded-lg px-2 sm:px-3 py-1.5 animate-pulse flex-shrink-0">
+              <AlertTriangle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+              <span className="text-xs font-bold text-rose-300 hidden sm:inline">SEVERE RISK — Session flagged</span>
+              <span className="text-xs font-bold text-rose-300 sm:hidden">SEVERE</span>
             </div>
           )}
 
-          <div className="flex items-center gap-2 text-xs text-slate-400">
+          {/* Session risk score on mobile */}
+          {isAdmin && currentSession && riskScore > 0 && (
+            <div className="lg:hidden flex items-center gap-1.5 flex-shrink-0">
+              <div className="flex items-center gap-1 bg-slate-800/60 border border-slate-700/40 rounded-lg px-2 py-1">
+                <div className={cn(
+                  "w-1.5 h-1.5 rounded-full",
+                  severity === 'Low' ? 'bg-emerald-400' :
+                  severity === 'Medium' ? 'bg-amber-400' :
+                  severity === 'High' ? 'bg-orange-400' :
+                  severity === 'Critical' ? 'bg-red-400' : 'bg-rose-400 animate-pulse'
+                )} />
+                <span className={cn(
+                  "text-[10px] font-bold",
+                  severity === 'Low' ? 'text-emerald-300' :
+                  severity === 'Medium' ? 'text-amber-300' :
+                  severity === 'High' ? 'text-orange-300' :
+                  severity === 'Critical' ? 'text-red-300' : 'text-rose-300'
+                )}>{riskScore}</span>
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 text-xs text-slate-400 flex-shrink-0">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            Live
+            <span className="hidden sm:inline">Live</span>
           </div>
         </header>
 

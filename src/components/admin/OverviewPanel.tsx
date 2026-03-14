@@ -86,9 +86,9 @@ export default function OverviewPanel() {
   ];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
       {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
         {statCards.map(card => (
           <div key={card.label} className="bg-[#0d1f35] border border-slate-700/40 rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
@@ -103,7 +103,7 @@ export default function OverviewPanel() {
       </div>
 
       {/* Severity breakdown */}
-      <div className="grid grid-cols-5 gap-2">
+      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
         {severityCounts.map(s => (
           <div key={s.severity} className={cn('rounded-xl p-3 border text-center', getSeverityBg(s.severity as Severity))}>
             <p className="text-xl font-bold">{s.count}</p>
@@ -112,9 +112,9 @@ export default function OverviewPanel() {
         ))}
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
+      <div className="grid lg:grid-cols-2 gap-4 lg:gap-6">
         {/* Alert trend chart */}
-        <div className="bg-[#0d1f35] border border-slate-700/40 rounded-xl p-5">
+        <div className="bg-[#0d1f35] border border-slate-700/40 rounded-xl p-4 lg:p-5">
           <h3 className="text-sm font-semibold text-white mb-4">Alert Trend — Last 7 Days</h3>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={alertTrend}>
@@ -132,7 +132,7 @@ export default function OverviewPanel() {
         </div>
 
         {/* Scam type breakdown */}
-        <div className="bg-[#0d1f35] border border-slate-700/40 rounded-xl p-5">
+        <div className="bg-[#0d1f35] border border-slate-700/40 rounded-xl p-4 lg:p-5">
           <h3 className="text-sm font-semibold text-white mb-4">Alerts by Scam Type</h3>
           {scamBreakdown.length > 0 ? (
             <ResponsiveContainer width="100%" height={200}>
@@ -170,7 +170,7 @@ export default function OverviewPanel() {
       </div>
 
       {/* Top risk users */}
-      <div className="bg-[#0d1f35] border border-slate-700/40 rounded-xl p-5">
+      <div className="bg-[#0d1f35] border border-slate-700/40 rounded-xl p-4 lg:p-5">
         <h3 className="text-sm font-semibold text-white mb-4">Top 5 Highest Risk Users</h3>
         {topRiskUsers.every(u => u.score === 0) ? (
           <p className="text-slate-500 text-sm">No risk events recorded yet. Trigger actions to see scores here.</p>

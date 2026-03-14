@@ -102,11 +102,11 @@ export default function UserManagementPanel() {
     : [];
 
   return (
-    <div className="p-6 space-y-5">
-      <div className="flex items-center justify-between">
+    <div className="p-4 lg:p-6 space-y-4 lg:space-y-5">
+      <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-white">User Management</h2>
-          <p className="text-sm text-slate-400">{users.length} total accounts</p>
+          <p className="text-xs text-slate-400">{users.length} total accounts</p>
         </div>
         <button
           onClick={openCreate}
@@ -131,7 +131,8 @@ export default function UserManagementPanel() {
 
       {/* Users Table */}
       <div className="bg-[#0d1f35] border border-slate-700/40 rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Desktop table */}
+        <div className="hidden sm:block overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-700/40 bg-[#060e1a]/50">
@@ -225,18 +226,61 @@ export default function UserManagementPanel() {
             </tbody>
           </table>
         </div>
+
+        {/* Mobile card list */}
+        <div className="sm:hidden divide-y divide-slate-700/30">
+          {filtered.map(user => {
+            const score = sessions[user.id]?.riskScore || 0;
+            const sev = getSeverity(score);
+            return (
+              <div key={user.id} className="p-3 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-sky-600 to-blue-700 flex items-center justify-center flex-shrink-0">
+                  <span className="text-xs font-bold text-white">{user.fullName.charAt(0)}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-white truncate flex items-center gap-1">
+                    {user.fullName}
+                    {user.isAdmin && <Shield className="w-3 h-3 text-sky-400 flex-shrink-0" />}
+                  </p>
+                  <p className="text-[10px] text-slate-400">{user.role} · {user.department}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded-full",
+                      user.status === 'active' ? 'text-emerald-400 bg-emerald-400/10' :
+                      user.status === 'suspended' ? 'text-amber-400 bg-amber-400/10' :
+                      'text-slate-400 bg-slate-400/10'
+                    )}>{user.status}</span>
+                    {score > 0 && (
+                      <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded border", getSeverityBg(sev))}>{score}</span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-0.5 flex-shrink-0">
+                  <button onClick={() => openEdit(user)} className="p-2 text-slate-400 hover:text-sky-400 rounded-lg transition-all" title="Edit">
+                    <Edit className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => handleDeactivate(user)} className={cn("p-2 rounded-lg transition-all", user.status === 'active' ? 'text-slate-400 hover:text-amber-400' : 'text-amber-400')} title={user.status === 'active' ? 'Suspend' : 'Activate'}>
+                    {user.status === 'active' ? <UserX className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />}
+                  </button>
+                  <button onClick={() => setViewLogsFor(user)} className="p-2 text-slate-400 hover:text-emerald-400 rounded-lg transition-all" title="Logs">
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Create/Edit Form Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowForm(false)} />
-          <div className="relative bg-[#0d1f35] border border-slate-700/50 rounded-2xl w-full max-w-lg p-6 shadow-2xl">
-            <h3 className="text-lg font-bold text-white mb-5">
+          <div className="relative bg-[#0d1f35] border border-slate-700/50 rounded-2xl w-full max-w-lg p-4 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <h3 className="text-base sm:text-lg font-bold text-white mb-4 sm:mb-5">
               {editingUser ? `Edit ${editingUser.fullName}` : 'Create New User'}
             </h3>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1.5">Full Name</label>
                   <input
