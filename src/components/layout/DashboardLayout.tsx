@@ -26,6 +26,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'loanreqs', label: 'Loan Requests', icon: CreditCard, adminOnly: true, roles: ['Loan Officer', 'Branch Manager'] },
   { id: 'changereqs', label: 'Change Requests', icon: Phone, adminOnly: true, roles: ['Teller'] },
   { id: 'makerchecker', label: 'Maker-Checker', icon: ShieldAlert, adminOnly: true, roles: ['Branch Manager', 'Teller', 'Treasury Analyst'] },
+  { id: 'muledetect', label: 'Mule Detection', icon: AlertTriangle, adminOnly: true },
   { id: 'customers', label: 'Customer Portal', icon: User, adminOnly: false },
 ];
 

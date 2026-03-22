@@ -94,6 +94,19 @@ export const RULE_DEFINITIONS: Record<string, { description: string; score: numb
   R071: { description: 'Mobile number changed without an approved request on a Dormant account', score: 90, category: 'Unauthorized Modification' },
   R072: { description: 'Email changed without an approved request on a Dormant account', score: 85, category: 'Unauthorized Modification' },
   R073: { description: 'Both mobile and email changed without any approved request', score: 95, category: 'Unauthorized Modification' },
+
+  // ── Mule / Dummy Account Detection ───────────────────────────────────────────
+  R100: { description: 'Account opened less than 30 days ago with high-value transaction (>₹1L) — new account fraud', score: 65, category: 'Mule Account' },
+  R101: { description: 'Credits immediately followed by full withdrawal within 24h — pass-through / mule pattern', score: 80, category: 'Mule Account' },
+  R102: { description: 'Repeated round-number transactions (exact multiples of ₹10,000) — structuring to avoid detection', score: 55, category: 'Mule Account' },
+  R103: { description: 'Same mobile number or email linked to 2+ customer accounts — duplicate identity / synthetic ID', score: 75, category: 'Mule Account' },
+  R104: { description: 'Dormant account suddenly active with large inflow (>₹5L) — reactivated mule account', score: 85, category: 'Mule Account' },
+  R105: { description: 'Account has zero organic banking activity — no utility, EMI, or salary credits, only P2P transfers', score: 60, category: 'Mule Account' },
+  R106: { description: 'Multiple beneficiaries added within 24h of account opening — rapid network setup for money movement', score: 70, category: 'Mule Account' },
+  R107: { description: 'More than 10 transactions in a 24-hour window — unusually high velocity for account age', score: 50, category: 'Mule Account' },
+  R108: { description: 'Transaction amounts cluster just below ₹2,00,000 threshold (₹1.8L–₹1.99L) — structuring to avoid CTR', score: 75, category: 'Mule Account' },
+  R109: { description: 'KYC status Pending or Expired but account is transacting above ₹50,000 — regulatory violation risk', score: 65, category: 'Mule Account' },
+  R110: { description: 'Account balance consistently near zero despite multiple credits — classic pass-through mule behaviour', score: 80, category: 'Mule Account' },
 };
 
 export const SEVERITY_COLORS: Record<string, string> = {

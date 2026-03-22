@@ -107,6 +107,7 @@ export type ScamType =
   | 'Unauthorized Contact Modification'
   | 'Maker-Checker Bypass'
   | 'Maker-Checker Collusion'
+  | 'Mule Account'
   | 'General Suspicious Activity';
 
 export type ConfidenceLevel = 'LOW' | 'MEDIUM' | 'HIGH';
