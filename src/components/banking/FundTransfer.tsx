@@ -1,17 +1,21 @@
 import { useState } from 'react';
 import { useCustomer } from '@/lib/customerStore';
+import { useApp } from '@/lib/store';
 import { formatCurrency, cn } from '@/lib/utils';
 import { ArrowUpRight, CheckCircle, AlertCircle, Info } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function FundTransfer() {
   const { state, transferFunds } = useCustomer();
+  const { logAction } = useApp();
   const [selectedBenId, setSelectedBenId] = useState('');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [lastRef, setLastRef] = useState('');
+  const [lastBen, setLastBen] = useState<{ name: string; accountNumber: string; bankName: string } | null>(null);
+  const [lastAmount, setLastAmount] = useState(0);
 
   const { currentCustomer, beneficiaries } = state;
   if (!currentCustomer) return null;
@@ -24,20 +28,45 @@ export default function FundTransfer() {
     e.preventDefault();
     if (!isValid || !selectedBen) return;
     setLoading(true);
+
+    const txId = `TX${Date.now()}`;
+    const refNum = 'REF' + Math.random().toString(36).substr(2, 9).toUpperCase();
     const ok = await transferFunds(parsedAmount, selectedBenId, description);
     setLoading(false);
+
     if (ok) {
       setSuccess(true);
-      setLastRef('REF' + Math.random().toString(36).substr(2, 9).toUpperCase());
+      setLastRef(refNum);
+      setLastBen({ name: selectedBen.name, accountNumber: selectedBen.accountNumber, bankName: selectedBen.bankName });
+      setLastAmount(parsedAmount);
       toast.success(`₹${parsedAmount.toLocaleString('en-IN')} transferred to ${selectedBen.name}`);
+
+      // Log as INITIATE_TRANSFER — writes a pending maker-checker record to the DB
+      // so a Checker (Branch Manager / Teller) can review it in the admin panel
+      logAction('INITIATE_TRANSFER', 'Core Banking', currentCustomer.id, {
+        txId,
+        amount: parsedAmount,
+        beneficiary: `${selectedBen.name} (${selectedBen.accountNumber})`,
+        beneficiaryBank: selectedBen.bankName,
+        description,
+        reference: refNum,
+        isOffPremises: false,
+      });
     } else {
       toast.error('Transfer failed. Please check your balance.');
     }
   };
 
-  const reset = () => { setSuccess(false); setAmount(''); setDescription(''); setSelectedBenId(''); };
+  const reset = () => {
+    setSuccess(false);
+    setAmount('');
+    setDescription('');
+    setSelectedBenId('');
+    setLastBen(null);
+    setLastAmount(0);
+  };
 
-  if (success) {
+  if (success && lastBen) {
     return (
       <div className="p-4 lg:p-6 max-w-lg mx-auto">
         <div className="bg-[#061a10] border border-emerald-500/30 rounded-2xl p-8 text-center space-y-4">
@@ -50,10 +79,10 @@ export default function FundTransfer() {
           </div>
           <div className="bg-[#040d08] rounded-xl p-4 space-y-2 text-left">
             {[
-              { label: 'Amount', value: formatCurrency(parsedAmount), color: 'text-emerald-400' },
-              { label: 'To', value: selectedBen?.name || '' },
-              { label: 'Account', value: selectedBen?.accountNumber || '' },
-              { label: 'Bank', value: selectedBen?.bankName || '' },
+              { label: 'Amount', value: formatCurrency(lastAmount), color: 'text-emerald-400' },
+              { label: 'To', value: lastBen.name },
+              { label: 'Account', value: lastBen.accountNumber },
+              { label: 'Bank', value: lastBen.bankName },
               { label: 'Reference', value: lastRef, mono: true },
             ].map(f => (
               <div key={f.label} className="flex justify-between">
@@ -62,6 +91,9 @@ export default function FundTransfer() {
               </div>
             ))}
           </div>
+          <p className="text-xs text-slate-500">
+            This transfer is pending checker approval in the bank's internal system.
+          </p>
           <button onClick={reset} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 rounded-xl transition-colors">
             Make Another Transfer
           </button>
@@ -156,6 +188,10 @@ export default function FundTransfer() {
               <div className="flex justify-between border-t border-emerald-800/30 pt-1.5 mt-1.5">
                 <span className="text-slate-400">Balance after transfer</span>
                 <span className="text-white">{formatCurrency(currentCustomer.balance - parsedAmount)}</span>
+              </div>
+              <div className="flex items-center gap-1.5 pt-1 text-amber-400/70">
+                <Info className="w-3 h-3" />
+                <span>Subject to maker-checker approval in bank's system</span>
               </div>
             </div>
           )}

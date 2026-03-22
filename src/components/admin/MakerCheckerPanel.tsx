@@ -104,6 +104,23 @@ export default function MakerCheckerPanel() {
       .limit(300);
 
     if (data) {
+      // Pending queue: rows awaiting a checker (not initiated by this user)
+      const pending = data
+        .filter((r: any) => r.status === 'pending' && r.maker_id !== user?.id)
+        .map((r: any) => ({
+          txId:          r.tx_id,
+          makerName:     r.maker_name,
+          makerIp:       r.maker_ip,
+          makerDevice:   r.maker_device,
+          makerId:       r.maker_id,
+          amount:        Number(r.amount),
+          beneficiary:   r.beneficiary ?? '',
+          customerId:    r.customer_id ?? '',
+          initiatedAt:   r.initiated_at,
+          isOffPremises: r.is_off_premises_maker ?? false,
+        }));
+      setPendingTxs(pending);
+
       setTransactions(data.map((r: any) => ({
         id: r.id,
         txId: r.tx_id,
@@ -125,22 +142,6 @@ export default function MakerCheckerPanel() {
         isOffPremisesChecker: r.is_off_premises_checker ?? false,
       })));
     }
-
-    // Load pending maker-checker actions from current session
-    const pending = (state.currentSession?.makerCheckerActions ?? [])
-      .filter(a => a.status === 'pending' && a.makerId !== user?.id);
-    setPendingTxs(pending.map(a => ({
-      txId: a.txId,
-      makerName: a.makerName,
-      makerIp: a.makerIp,
-      makerDevice: a.makerDevice,
-      makerId: a.makerId,
-      amount: a.amount,
-      beneficiary: a.beneficiary,
-      customerId: a.customerId,
-      initiatedAt: a.initiatedAt,
-      isOffPremises: a.isOffPremises ?? false,
-    })));
 
     setLoading(false);
   }, [state.currentSession, user?.id]);

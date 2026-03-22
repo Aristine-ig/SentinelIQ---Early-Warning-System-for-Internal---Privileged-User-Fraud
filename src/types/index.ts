@@ -60,6 +60,8 @@ export type ActionType =
   | 'VIEW_ACCOUNT'
   | 'MODIFY_CONTACT'
   | 'INITIATE_TRANSACTION'
+  | 'INITIATE_TRANSFER'
+  | 'APPROVE_TRANSACTION'
   | 'RUN_REPORT'
   | 'TRIGGER_OTP'
   | 'APPROVE_LOAN'
@@ -70,9 +72,7 @@ export type ActionType =
   | 'VIEW_AUDIT_LOG'
   | 'DELETE_AUDIT_LOG_ATTEMPT'
   | 'APPLY_CONTACT_CHANGE'
-  | 'REJECT_CONTACT_CHANGE'
-  | 'APPROVE_TRANSACTION'
-  | 'INITIATE_TRANSFER';
+  | 'REJECT_CONTACT_CHANGE';
 
 export interface ActivityLog {
   id: string;

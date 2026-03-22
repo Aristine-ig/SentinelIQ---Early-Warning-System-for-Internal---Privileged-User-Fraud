@@ -721,7 +721,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ];
     }
 
-    if (actionType === 'INITIATE_TRANSACTION') {
+    if (actionType === 'INITIATE_TRANSACTION' || actionType === 'INITIATE_TRANSFER') {
       updatedSession.transactionCount = updatedSession.transactionCount + 1;
       const amount = (metadata.amount as number) || 0;
       const beneficiary = (metadata.beneficiary as string) || '';
@@ -731,10 +731,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ];
       if (Math.random() < 0.3) mutableExtraRules = [...mutableExtraRules, 'R034'];
 
-      // Track as maker-checker pending transaction
-      const txId = `TX${Date.now()}`;
-      const makerDevice = metadata.deviceFingerprint as string || `DEV-${updatedSession.ip.replace(/\./g, '')}${Math.floor(Math.random() * 1000)}`;
-      const isOffPremises = metadata.isOffPremises as boolean || (Math.random() < 0.2);
+      // Create a real pending maker-checker record in the database
+      const txId = (metadata.txId as string) || `TX${Date.now()}`;
+      const makerDevice = (metadata.deviceFingerprint as string) || `DEV-${updatedSession.ip.replace(/\./g, '')}${Math.floor(Math.random() * 1000)}`;
+      const isOffPremises = (metadata.isOffPremises as boolean) || false;
+      const nowTs = new Date().toISOString();
+
       updatedSession.makerCheckerActions = [
         ...(updatedSession.makerCheckerActions ?? []),
         {
@@ -744,13 +746,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           makerIp: updatedSession.ip,
           makerDevice,
           amount,
-          initiatedAt: new Date().toISOString(),
+          initiatedAt: nowTs,
           status: 'pending',
           customerId: customerId || '',
           beneficiary,
           isOffPremises,
         },
       ];
+
+      // Write pending record to DB — Checker will see this in MakerCheckerPanel
+      supabase.from('maker_checker_transactions').insert({
+        id:                    `MCT${Date.now()}`,
+        tx_id:                 txId,
+        maker_id:              s.currentUser!.id,
+        maker_name:            s.currentUser!.fullName,
+        maker_ip:              updatedSession.ip,
+        maker_device:          makerDevice,
+        amount,
+        customer_id:           customerId || null,
+        beneficiary,
+        initiated_at:          nowTs,
+        status:                'pending',
+        collusion_rules:       [],
+        is_off_premises_maker: isOffPremises,
+      }).then(({ error }) => { if (error) console.error('MCT pending insert error:', error); });
 
       // R092: Transaction initiated within 10 min of system close (5:50 PM–6:00 PM)
       const nowHour = new Date().getHours();
@@ -808,27 +827,94 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // R097: Both off-premises
         if (isOffPremises && checkerIsOffPremises) mutableExtraRules = [...mutableExtraRules, 'R097'];
 
-        // Insert into maker_checker_transactions table
-        supabase.from('maker_checker_transactions').insert({
-          id: `MCT${Date.now()}`,
-          tx_id: txId,
-          maker_id: makerId,
-          maker_name: metadata.makerName as string || '',
-          maker_ip: makerIp,
-          maker_device: makerDevice,
-          checker_id: s.currentUser!.id,
-          checker_name: s.currentUser!.fullName,
-          checker_ip: updatedSession.ip,
-          checker_device: checkerDevice,
-          amount,
-          customer_id: customerId || null,
-          initiated_at: initiatedAt,
-          approved_at: now.toISOString(),
-          status: decision,
-          collusion_rules: mutableExtraRules.filter(r => ['R060','R062','R063','R090','R091','R092','R093','R094','R095','R096','R097'].includes(r)),
-          is_off_premises_maker: isOffPremises,
-          is_off_premises_checker: checkerIsOffPremises,
-        }).then(({ error }) => { if (error) console.error('MCT insert error:', error); });
+        const collusionRules = mutableExtraRules.filter(r =>
+          ['R060','R062','R063','R090','R091','R092','R093','R094','R095','R096','R097'].includes(r)
+        );
+
+        // Try to UPDATE the existing pending row first (if customer initiated via FundTransfer)
+        // then fall back to INSERT a new completed row (for teller-initiated transactions)
+        supabase
+          .from('maker_checker_transactions')
+          .update({
+            checker_id:              s.currentUser!.id,
+            checker_name:            s.currentUser!.fullName,
+            checker_ip:              updatedSession.ip,
+            checker_device:          checkerDevice,
+            approved_at:             now.toISOString(),
+            status:                  decision,
+            collusion_rules:         collusionRules,
+            is_off_premises_checker: checkerIsOffPremises,
+          })
+          .eq('tx_id', txId)
+          .eq('status', 'pending')
+          .then(async ({ error, data }) => {
+            if (error) console.error('MCT update error:', error);
+            // If no pending row existed, insert a completed record directly
+            const updatedCount = Array.isArray(data) ? data.length : 0;
+            if (!error && updatedCount === 0) {
+              await supabase.from('maker_checker_transactions').insert({
+                id:                      `MCT${Date.now()}`,
+                tx_id:                   txId,
+                maker_id:                makerId,
+                maker_name:              (metadata.makerName as string) || '',
+                maker_ip:                makerIp,
+                maker_device:            makerDevice,
+                checker_id:              s.currentUser!.id,
+                checker_name:            s.currentUser!.fullName,
+                checker_ip:              updatedSession.ip,
+                checker_device:          checkerDevice,
+                amount,
+                customer_id:             customerId || null,
+                beneficiary:             (metadata.beneficiary as string) || '',
+                initiated_at:            initiatedAt,
+                approved_at:             now.toISOString(),
+                status:                  decision,
+                collusion_rules:         collusionRules,
+                is_off_premises_maker:   isOffPremises,
+                is_off_premises_checker: checkerIsOffPremises,
+              }).then(({ error: e2 }) => { if (e2) console.error('MCT insert error:', e2); });
+            }
+          });
+
+        // Real DB home-address check for R094
+        supabase
+          .from('employee_profiles')
+          .select('user_id, home_address, home_pincode, registered_ips')
+          .in('user_id', [makerId, s.currentUser!.id])
+          .then(({ data: profiles }) => {
+            if (profiles && profiles.length === 2) {
+              const makerProf   = profiles.find((p: any) => p.user_id === makerId);
+              const checkerProf = profiles.find((p: any) => p.user_id === s.currentUser!.id);
+              if (
+                makerProf && checkerProf &&
+                makerProf.home_address && checkerProf.home_address &&
+                makerProf.home_address.trim().toLowerCase() ===
+                checkerProf.home_address.trim().toLowerCase()
+              ) {
+                // Patch collusion_rules with R094
+                supabase
+                  .from('maker_checker_transactions')
+                  .update({ collusion_rules: [...new Set([...collusionRules, 'R094'])] })
+                  .eq('tx_id', txId)
+                  .then(({ error }) => { if (error) console.error('R094 patch error:', error); });
+                // Also trigger rule in current session
+                triggerRuleCheck(
+                  { ...updatedSession },
+                  s.customers, s.currentUser!,
+                  ['R094']
+                );
+              }
+              // Real off-premises check for checker (R097)
+              if (
+                checkerProf?.registered_ips &&
+                !checkerProf.registered_ips.includes(updatedSession.ip) &&
+                isOffPremises
+              ) {
+                // Both maker and checker are off-premises — R097 already flagged
+                console.log('[R097] Confirmed: both Maker and Checker off bank premises');
+              }
+            }
+          });
       } else {
         // Rejected — update action status
         updatedSession.makerCheckerActions = (updatedSession.makerCheckerActions ?? []).map(a =>
