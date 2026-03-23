@@ -471,14 +471,21 @@ export async function saveBaseline(userId: string, baseline: BehaviorFeatures): 
     bulk_download_mean:          baseline.bulkDownloadMean,
     bulk_download_std:           baseline.bulkDownloadStd,
     sample_count:                baseline.sampleCount,
-    updated_at:                  baseline.updatedAt,
+    updated_at:                  new Date().toISOString(),
   };
 
   const { error } = await supabase
     .from('behavior_baselines')
     .upsert(row, { onConflict: 'user_id' });
 
-  if (error) console.error('[BehaviorEngine] Baseline save error:', error);
+  if (error) {
+    // Table may not exist yet — migration not run
+    if (error.code === '42P01') {
+      console.warn('[BehaviorEngine] behavior_baselines table not found. Run supabase-migration-behavior-baselines.sql first.');
+    } else {
+      console.error('[BehaviorEngine] Baseline save error:', error);
+    }
+  }
 }
 
 // ── Load baseline from Supabase (returns null if not found) ───────────────────
@@ -488,27 +495,36 @@ export async function loadBaseline(userId: string): Promise<BehaviorFeatures | n
     .from('behavior_baselines')
     .select('*')
     .eq('user_id', userId)
-    .single();
+    .maybeSingle();
 
-  if (error || !data) return null;
+  if (error) {
+    if (error.code === '42P01') {
+      console.warn('[BehaviorEngine] behavior_baselines table not found. Run migration SQL first.');
+    } else {
+      console.error('[BehaviorEngine] Baseline load error:', error);
+    }
+    return null;
+  }
+
+  if (!data) return null;
 
   const r = data as DbBaseline;
   return {
-    loginHourMean:             r.login_hour_mean,
-    loginHourStd:              r.login_hour_std,
-    customersPerSessionMean:   r.customers_per_session_mean,
-    customersPerSessionStd:    r.customers_per_session_std,
-    txnPerSessionMean:         r.txn_per_session_mean,
-    txnPerSessionStd:          r.txn_per_session_std,
-    reportsPerSessionMean:     r.reports_per_session_mean,
-    reportsPerSessionStd:      r.reports_per_session_std,
-    contactModsPerSessionMean: r.contact_mods_mean,
-    contactModsPerSessionStd:  r.contact_mods_std,
-    offHoursRate:              r.off_hours_rate,
-    knownIpRate:               r.known_ip_rate,
-    bulkDownloadMean:          r.bulk_download_mean,
-    bulkDownloadStd:           r.bulk_download_std,
-    sampleCount:               r.sample_count,
+    loginHourMean:             Number(r.login_hour_mean),
+    loginHourStd:              Number(r.login_hour_std),
+    customersPerSessionMean:   Number(r.customers_per_session_mean),
+    customersPerSessionStd:    Number(r.customers_per_session_std),
+    txnPerSessionMean:         Number(r.txn_per_session_mean),
+    txnPerSessionStd:          Number(r.txn_per_session_std),
+    reportsPerSessionMean:     Number(r.reports_per_session_mean),
+    reportsPerSessionStd:      Number(r.reports_per_session_std),
+    contactModsPerSessionMean: Number(r.contact_mods_mean),
+    contactModsPerSessionStd:  Number(r.contact_mods_std),
+    offHoursRate:              Number(r.off_hours_rate),
+    knownIpRate:               Number(r.known_ip_rate),
+    bulkDownloadMean:          Number(r.bulk_download_mean),
+    bulkDownloadStd:           Number(r.bulk_download_std),
+    sampleCount:               Number(r.sample_count),
     updatedAt:                 r.updated_at,
   };
 }
@@ -524,9 +540,15 @@ export async function saveBehaviorSnapshot(profile: BehaviorProfile): Promise<vo
       anomaly_score:     profile.overallAnomalyScore,
       risk_tier:         profile.riskTier,
       triggered_rules:   triggered,
-      deviation_details: JSON.stringify(profile.deviations),
+      deviation_details: profile.deviations,
       captured_at:       profile.lastAnalysedAt,
     });
 
-  if (error) console.error('[BehaviorEngine] Snapshot save error:', error);
+  if (error) {
+    if (error.code === '42P01') {
+      console.warn('[BehaviorEngine] behavior_snapshots table not found. Run migration SQL first.');
+    } else {
+      console.error('[BehaviorEngine] Snapshot save error:', error);
+    }
+  }
 }
