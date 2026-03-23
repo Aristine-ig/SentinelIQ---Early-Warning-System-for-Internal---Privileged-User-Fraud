@@ -107,6 +107,16 @@ export const RULE_DEFINITIONS: Record<string, { description: string; score: numb
   R108: { description: 'Transaction amounts cluster just below ₹2,00,000 threshold (₹1.8L–₹1.99L) — structuring to avoid CTR', score: 75, category: 'Mule Account' },
   R109: { description: 'KYC status Pending or Expired but account is transacting above ₹50,000 — regulatory violation risk', score: 65, category: 'Mule Account' },
   R110: { description: 'Account balance consistently near zero despite multiple credits — classic pass-through mule behaviour', score: 80, category: 'Mule Account' },
+
+  // ── Behavioral Baseline ML Rules (R120–R125) ──────────────────────────────────
+  // Triggered by the Behavioral Baseline Engine when a user's current session
+  // deviates from their established statistical baseline (Z-score ≥ 2.0).
+  R120: { description: 'Login time significantly outside established baseline window (Z-score ≥ 2.0) — unusual access hour detected', score: 35, category: 'Behavioral Anomaly' },
+  R121: { description: 'Customer account access volume far exceeds behavioral baseline for this user (Z-score ≥ 2.0) — bulk access anomaly', score: 45, category: 'Behavioral Anomaly' },
+  R122: { description: 'Transaction initiation rate exceeds user behavioral baseline (Z-score ≥ 2.0) — velocity anomaly detected', score: 50, category: 'Behavioral Anomaly' },
+  R123: { description: 'Data export volume significantly exceeds user baseline (Z-score ≥ 2.0) — anomalous bulk download detected', score: 55, category: 'Behavioral Anomaly' },
+  R124: { description: 'Contact modification frequency exceeds behavioral baseline (Z-score ≥ 2.0) — unauthorized modification pattern', score: 60, category: 'Behavioral Anomaly' },
+  R125: { description: 'Report generation rate far above established baseline (Z-score ≥ 2.0) — data exfiltration timing anomaly', score: 40, category: 'Behavioral Anomaly' },
 };
 
 export const SEVERITY_COLORS: Record<string, string> = {

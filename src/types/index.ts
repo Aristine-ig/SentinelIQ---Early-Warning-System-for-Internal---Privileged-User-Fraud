@@ -108,6 +108,7 @@ export type ScamType =
   | 'Maker-Checker Bypass'
   | 'Maker-Checker Collusion'
   | 'Mule Account'
+  | 'Behavioral Anomaly'
   | 'General Suspicious Activity';
 
 export type ConfidenceLevel = 'LOW' | 'MEDIUM' | 'HIGH';

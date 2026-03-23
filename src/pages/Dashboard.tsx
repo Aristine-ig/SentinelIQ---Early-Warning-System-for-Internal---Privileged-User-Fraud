@@ -17,9 +17,10 @@ const KycRequestsPanel   = lazy(() => import('@/components/admin/KycRequestsPane
 const LoanRequestsPanel  = lazy(() => import('@/components/admin/LoanRequestsPanel'));
 const ChangeRequestsPanel = lazy(() => import('@/components/admin/ChangeRequestsPanel'));
 const MakerCheckerPanel   = lazy(() => import('@/components/admin/MakerCheckerPanel'));
-const MuleDetectionPanel  = lazy(() => import('@/components/admin/MuleDetectionPanel'));
+const MuleDetectionPanel      = lazy(() => import('@/components/admin/MuleDetectionPanel'));
+const BehaviorBaselinePanel   = lazy(() => import('@/components/admin/BehaviorBaselinePanel'));
 
-const ADMIN_PANELS = ['overview', 'alerts', 'behaviour', 'usermgmt', 'activitylog', 'customers', 'kyc', 'loanreqs', 'changereqs', 'makerchecker', 'muledetect'];
+const ADMIN_PANELS = ['overview', 'alerts', 'behaviour', 'usermgmt', 'activitylog', 'customers', 'kyc', 'loanreqs', 'changereqs', 'makerchecker', 'muledetect', 'mlbaseline'];
 const ROLE_PANELS: Record<string, string[]> = {
   'Loan Officer':   ['customers', 'loanreqs'],
   'Branch Manager': ['customers', 'loanreqs', 'makerchecker'],
@@ -87,6 +88,7 @@ export default function Dashboard() {
       case 'changereqs':   return (isAdmin || userRole === 'Teller') ? <ChangeRequestsPanel /> : null;
       case 'makerchecker': return (isAdmin || ['Branch Manager', 'Teller', 'Treasury Analyst'].includes(userRole)) ? <MakerCheckerPanel /> : null;
       case 'muledetect':  return isAdmin ? <MuleDetectionPanel /> : null;
+      case 'mlbaseline':  return isAdmin ? <BehaviorBaselinePanel /> : null;
       case 'customers':   return <CustomerTable onSelectCustomer={handleSelectCustomer} />;
       default:            return isAdmin ? <OverviewPanel /> : <CustomerTable onSelectCustomer={handleSelectCustomer} />;
     }

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Shield, ShieldAlert, LayoutDashboard, Bell, Users, Activity, FileText,
   LogOut, ChevronLeft, ChevronRight, User, AlertTriangle,
-  Menu, X, FileCheck, CreditCard, Phone,
+  Menu, X, FileCheck, CreditCard, Phone, Brain,
 } from 'lucide-react';
 import { useApp } from '@/lib/store';
 import { cn, getSeverity } from '@/lib/utils';
@@ -27,6 +27,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'changereqs', label: 'Change Requests', icon: Phone, adminOnly: true, roles: ['Teller'] },
   { id: 'makerchecker', label: 'Maker-Checker', icon: ShieldAlert, adminOnly: true, roles: ['Branch Manager', 'Teller', 'Treasury Analyst'] },
   { id: 'muledetect', label: 'Mule Detection', icon: AlertTriangle, adminOnly: true },
+  { id: 'mlbaseline', label: 'ML Baselines', icon: Brain, adminOnly: true },
   { id: 'customers', label: 'Customer Portal', icon: User, adminOnly: false },
 ];
 
